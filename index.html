@@ -231,6 +231,9 @@ body::before{background:var(--bg)}
 .btn.primary{text-transform:uppercase;letter-spacing:.04em;font-size:13px}
 .chip,.count{border-radius:2px}
 .search input[type=text]{padding-left:40px}
+.dm-ctx{display:flex;flex-direction:column;gap:2px;width:100%;text-align:left;border:0;border-left:3px solid var(--accent);background:rgba(0,0,0,.18);border-radius:4px;padding:6px 10px;margin-bottom:6px;color:var(--ink);font-size:13px}
+.dm-list .ch{padding:8px}
+.dm-list .ch .count{flex:none}
 /* Левая панель разделов */
 :root{--side-w:68px}
 body.side-wide{--side-w:236px}
@@ -445,6 +448,17 @@ if(!store._v6){
   if(store.applications?.u_denis) store.applications.u_denis.source="member";
   store._v6=true; ls.set(KEY_DB,store);
 }
+// личные сообщения
+if(!store._v7){
+  const t=x=>Math.round(now-x*H); const r1={type:"request",id:"r1",title:"Спикер про монетизацию мобильных игр на отраслевую конференцию"};
+  store.dms={
+    u_irina:{msgs:[{id:"d1",to:"u_oleg",text:"Олег, привет! Видела, ты делаешь разборы монетизации. Пригласила тебя на запрос про конференцию — посмотришь?",at:t(26),ctx:r1},
+      {id:"d2",to:"u_oleg",text:"Отлично, тогда пришлю программу в пятницу.",at:t(20)}],read:{u_oleg:t(21),u_maria:0}},
+    u_oleg:{msgs:[{id:"d3",to:"u_irina",text:"Привет! Да, интересно. 30 минут — нормально, могу показать цифры по удержанию.",at:t(22)},
+      {id:"d4",to:"u_irina",text:"Договорились, жду.",at:t(19)}],read:{u_irina:t(20)}},
+    u_maria:{msgs:[{id:"d5",to:"u_irina",text:"Здравствуйте! Можно вопрос про стажировки для художников? Хочу понять, есть ли программы у РВИ.",at:t(3)}],read:{}}};
+  store._v7=true; ls.set(KEY_DB,store);
+}
 const people=ls.get(KEY_P);
 const meId=ls.get(KEY_ME)||people[0].id;
 const me=people.find(p=>p.id===meId)||people[0];
@@ -458,7 +472,7 @@ const snapDoc=(id,data)=>({id,exists:!!data,data:()=>data?clone(data):undefined,
 const deny=()=>Promise.reject({code:"invalid_argument",message:"Недостаточно прав в демо"});
 function allowed(coll,id,del){
   if(coll==="staff"||coll==="initiatives"||coll==="channels") return !!me.admin;
-  if(coll==="ballots"||coll==="profiles") return id===me.id;
+  if(coll==="ballots"||coll==="profiles"||coll==="dms") return id===me.id;
   if(coll==="applications") return id===me.id||(del&&!!me.admin);
   return true;
 }
@@ -565,7 +579,8 @@ const S = {
   tab:"chats", channel:"general", replyTo:null, openComments:new Set(), openBlog:null, person:null, q:"", qType:"all",
   peopleTag:"", initDraft:null, exportFmt:"hh", editingProfile:false,
   requests:[], marketView:"requests", marketFormat:"", importSrc:"linkedin",
-  projects:[], projView:"catalog", gsel:new Set(), gfilter:new Set(), gdraft:null
+  projects:[], projView:"catalog", gsel:new Set(), gfilter:new Set(), gdraft:null,
+  dms:{}, dmPeer:null, dmCtx:null, dmDraft:""
 };
 const FORMATS = {talk:"Выступление", mc:"Мастер-класс", consult:"Консультация", jury:"Жюри / эксперт", mentor:"Менторство", media:"Подкаст / интервью"};
 const TERMS = {free:"Бесплатно", deal:"По договорённости", fee:"За гонорар"};
@@ -842,7 +857,7 @@ function view(){
   if(S.stale) out.push(h("div",{class:"notice warn",style:"margin-bottom:14px"},"Данные пока не доходят. То, что вы видите, может быть устаревшим."));
   if(!isMember()) return [...out,renderGate()];
   if(S.q.trim()) return [...out,renderSearch()];
-  const map={chats:renderChats,blogs:renderBlogs,people:renderPeople,market:renderMarket,inits:renderInits,stats:renderStats,apps:renderApps,me:renderMe,tags:renderTagsRef,projects:renderProjects};
+  const map={chats:renderChats,blogs:renderBlogs,people:renderPeople,market:renderMarket,inits:renderInits,stats:renderStats,apps:renderApps,me:renderMe,tags:renderTagsRef,projects:renderProjects,dms:renderDMs};
   out.push(map[S.tab]?map[S.tab]():renderChats());
   return out;
 }
@@ -854,6 +869,7 @@ function renderWho(){
 /* Левая панель разделов: иконки, подпись видна в развёрнутом виде и во всплывающей подсказке */
 const ICONS={
   chats:'<path d="M4 5h16v11H9l-5 4z"/>',
+  dms:'<path d="M3 6h18v12H3z"/><path d="M3 7l9 6 9-6"/>',
   blogs:'<path d="M5 4h11l3 3v13H5z"/><path d="M8 9h8M8 13h8M8 17h5"/>',
   people:'<circle cx="9" cy="8" r="3.2"/><path d="M3 19c.6-3.4 3-5 6-5s5.4 1.6 6 5"/><circle cx="17" cy="9" r="2.4"/><path d="M16 14c2.5 0 4.3 1.4 5 4"/>',
   projects:'<path d="M6 9h12a3 3 0 013 3v2a3 3 0 01-5.3 1.9L14.5 14h-5l-1.2 1.9A3 3 0 013 14v-2a3 3 0 013-3z"/><path d="M8 11v3M6.5 12.5h3M16 12h.01M18 13.5h.01"/>',
@@ -874,7 +890,7 @@ function renderTabs(){
   const item=([k,l,n,hot])=>h("button",{class:"tab"+(hot?" hot":""),role:"tab",title:l+(n?" · "+n:""),"aria-label":l,"aria-selected":String(S.tab===k&&!S.q),
     onclick:()=>{S.tab=k;S.q="";S.person=null;S.openBlog=null;document.getElementById("q").value="";try{localStorage.setItem("rvi-tab",k)}catch(e){};render();window.scrollTo({top:0});}},
     icon(k),h("span",{class:"tab-label"},l),n?h("span",{class:"count"},n):"");
-  [["chats","Чаты",0],["blogs","Блоги и новости",0],["people","Люди",0],["projects","Проекты",0],["market",invitedMe?"Эксперты и запросы · вас пригласили":"Эксперты и запросы",invitedMe||openReq,!!invitedMe],["inits","Инициативы",live],["stats","Аналитика",0],["apps","Заявки",pending]].forEach(x=>t.append(item(x)));
+  [["chats","Чаты",0],["dms","Сообщения",dmUnreadTotal()],["blogs","Блоги и новости",0],["people","Люди",0],["projects","Проекты",0],["market",invitedMe?"Эксперты и запросы · вас пригласили":"Эксперты и запросы",invitedMe||openReq,!!invitedMe],["inits","Инициативы",live],["stats","Аналитика",0],["apps","Заявки",pending]].forEach(x=>t.append(item(x)));
   [["tags","Словарь тегов",0],["me","Мой профиль",0]].forEach(x=>tb.append(item(x)));
 }
 function applySide(wide){ document.body.classList.toggle("side-wide",wide); const b=document.getElementById("side-toggle"); b.setAttribute("aria-label",wide?"Свернуть меню":"Развернуть меню"); b.title=wide?"Свернуть":"Развернуть"; try{localStorage.setItem("rvi-side",wide?"wide":"narrow")}catch(e){} }
@@ -1063,7 +1079,7 @@ function personFull(id){
       h("div",{class:"grow"},h("h2",{style:"font-size:28px"},displayName(id)),
         h("div",{style:"font-size:16px;margin-top:4px"},p.headline||app.role||""),
         h("div",{class:"small muted",style:"margin-top:2px"},[p.company||app.org,p.city,years?plural(years,"год","года","лет")+" в индустрии":""].filter(Boolean).join(" · "))),
-      h("div",{class:"stack",style:"align-items:flex-end;gap:8px"},trustBadge(id,true),vouchButton(id))),
+      h("div",{class:"stack",style:"align-items:flex-end;gap:8px"},trustBadge(id,true),h("div",{class:"row",style:"gap:6px"},dmButton(id),vouchButton(id)))),
     h("div",{class:"pf-sec row small",style:"gap:10px 20px"},h("b",{},"Связь с РВИ"),
       h("span",{class:"muted"},(S.staff[id]?"Администратор сообщества":"Участник сообщества")+(since?" с "+new Date(since).toLocaleDateString("ru",{day:"numeric",month:"long",year:"numeric"}).replace(/^\d+\s/,"").replace(" г.",""):"")),
       src?h("span",{style:"color:var(--accent)"},"Источник знакомства: "+(SOURCES[src]||src)):"",
@@ -1304,17 +1320,17 @@ function requestCard(r){
     if(my) card.append(h("div",{class:"row"},h("span",{class:"chip yes"},"Вы откликнулись"),my.note?h("span",{class:"small muted grow"},"«"+my.note+"»"):h("span",{class:"grow"}),
       h("button",{class:"btn ghost",onclick:()=>writeBallot(b=>{ b.responses=b.responses||{}; delete b.responses[r.id]; })},"Отозвать")));
     else { const note=h("input",{type:"text",id:"note-"+r.id,maxlength:300,placeholder:"Пара слов: почему вы подходите, какая тема"});
-      card.append(h("div",{class:"row"},h("div",{class:"grow"},note),h("button",{class:"btn primary",disabled:!S.canWrite,onclick:()=>writeBallot(b=>{ b.responses=b.responses||{}; b.responses[r.id]={note:note.value.trim(),at:Date.now()}; }).then(()=>toast("Отклик отправлен"))},"Откликнуться"))); }
+      card.append(h("div",{class:"row"},h("div",{class:"grow"},note),h("button",{class:"btn primary",disabled:!S.canWrite,onclick:()=>writeBallot(b=>{ b.responses=b.responses||{}; b.responses[r.id]={note:note.value.trim(),at:Date.now()}; }).then(()=>toast("Отклик отправлен"))},"Откликнуться"),dmButton(r.author,{type:"request",id:r.id,title:r.title},"Здравствуйте! Пишу по вашему запросу «"+r.title+"». ","Спросить"))); }
   }
   if(mine){
     if(resp.length) card.append(h("div",{class:"stack"},h("div",{class:"eyebrow"},"Откликнулись"),...resp.map(id=>{ const n=S.ballots[id].responses[r.id];
       return h("div",{class:"row"},avatarEl(id,"sm"),h("div",{class:"grow"},h("button",{class:"btn ghost",style:"padding:0;color:var(--ink);font-weight:600",onclick:()=>openPerson(id)},displayName(id)),n.note?h("div",{class:"small muted"},n.note):""),
-        levelChips(id,reqTags(r)),!closed?h("button",{class:"btn sm primary",onclick:()=>guard(()=>S.db.doc("requests/"+r.id).update({status:"closed",chosen:id,closedAt:Date.now()}))},"Выбрать"):r.chosen===id?h("span",{class:"chip yes"},"Выбран"):""); })));
+        levelChips(id,reqTags(r)),dmButton(id,{type:"request",id:r.id,title:r.title},"Привет! Видел, ты откликался на «"+r.title+"». "),!closed?h("button",{class:"btn sm primary",onclick:()=>guard(()=>S.db.doc("requests/"+r.id).update({status:"closed",chosen:id,closedAt:Date.now()}))},"Выбрать"):r.chosen===id?h("span",{class:"chip yes"},"Выбран"):""); })));
     if(!closed){
       const sugg=[...M.members].filter(id=>id!==S.uid&&isOffering(id)&&!resp.includes(id)).map(id=>({id,sc:matchScore(id,r)})).filter(x=>x.sc>0).sort((a,b)=>b.sc-a.sc).slice(0,4);
       card.append(h("div",{class:"stack"},h("div",{class:"eyebrow"},"Подходят по формату и тегам"),
         sugg.length?sugg.map(({id})=>h("div",{class:"row"},avatarEl(id,"sm"),h("button",{class:"btn ghost grow",style:"padding:0;color:var(--ink);font-weight:600;text-align:left",onclick:()=>openPerson(id)},displayName(id)),levelChips(id,reqTags(r)),
-          (r.invited||[]).includes(id)?h("span",{class:"chip"},"Приглашён"):h("button",{class:"btn sm",onclick:()=>guard(()=>S.db.doc("requests/"+r.id).update({invited:[...(r.invited||[]),id]}))},"Пригласить"))):h("p",{class:"small muted",style:"margin:0"},"Пока никто не отметил этот формат. Запрос всё равно видят все участники.")));
+          dmButton(id,{type:"request",id:r.id,title:r.title},"Привет! Ищу человека под «"+r.title+"», думаю, тебе может быть интересно. "),(r.invited||[]).includes(id)?h("span",{class:"chip"},"Приглашён"):h("button",{class:"btn sm",onclick:()=>guard(()=>S.db.doc("requests/"+r.id).update({invited:[...(r.invited||[]),id]}))},"Пригласить"))):h("p",{class:"small muted",style:"margin:0"},"Пока никто не отметил этот формат. Запрос всё равно видят все участники.")));
       card.append(h("div",{class:"actions"},h("button",{class:"btn ghost",onclick:()=>guard(()=>S.db.doc("requests/"+r.id).update({status:"closed",closedAt:Date.now()}))},"Закрыть без выбора"),
         h("button",{class:"btn ghost danger",onclick:e=>confirmInline(e.currentTarget,"Удалить запрос?",()=>guard(()=>S.db.doc("requests/"+r.id).delete()))},"Удалить")));
     }
@@ -1335,7 +1351,7 @@ function expertsView(){
         h("div",{class:"tags"},...o.formats.map(f=>h("span",{class:"chip law"},FORMATS[f]))),
         o.topics?h("div",{class:"small"},h("b",{},"Темы: "),o.topics):"",
         h("div",{class:"small muted"},[TERMS[o.terms]||"",o.online?"онлайн":"",S.profiles[id]?.city||""].filter(Boolean).join(" · ")),
-        levelChips(id,[]),
+        levelChips(id,[]),h("div",{},dmButton(id,null,"Здравствуйте! Нашёл вас в каталоге экспертов. ")),
         id!==S.uid?(pick?h("div",{class:"row"},pick,h("button",{class:"btn sm primary",onclick:()=>{ const r=S.requests.find(x=>x.id===pick.value); if(!r) return; if((r.invited||[]).includes(id)) return toast("Уже приглашён");
           guard(async()=>{ await S.db.doc("requests/"+r.id).update({invited:[...(r.invited||[]),id]}); toast("Приглашение отправлено"); }); }},"Пригласить")):h("div",{class:"small muted"},"Чтобы пригласить, создайте запрос во вкладке «Запросы организаторов».")):"");
     })));
@@ -1455,7 +1471,7 @@ function projectCard(p){
     h("div",{class:"body-text"},gameSentence(p.tags||[])),
     gameChips(p.tags||[],true),
     h("div",{class:"row small muted"},avatarEl(p.author,"sm"),h("button",{class:"btn ghost",style:"padding:0;color:var(--ink);font-weight:600",onclick:()=>openPerson(p.author)},displayName(p.author)),p.studio?h("span",{},p.studio):"",
-      p.link?h("a",{href:p.link,target:"_blank",rel:"noopener nofollow"},"страница игры"):"",h("div",{class:"grow"}),
+      p.link?h("a",{href:p.link,target:"_blank",rel:"noopener nofollow"},"страница игры"):"",h("div",{class:"grow"}),!mine?dmButton(p.author,{type:"project",id:p.id,title:p.title},"Привет! Посмотрел «"+p.title+"». ","Написать автору"):"",
       mine?h("button",{class:"btn ghost sm",onclick:()=>{ S.gsel=new Set(p.tags||[]); S.gdraft={id:p.id,title:p.title,studio:p.studio||"",link:p.link||"",stage:p.stage||"dev"}; S.projView="builder"; render(); window.scrollTo({top:0}); }},"Изменить"):"",
       (mine||S.isAdmin)?h("button",{class:"btn ghost sm danger",onclick:e=>confirmInline(e.currentTarget,"Удалить проект?",()=>guard(()=>S.db.doc("projects/"+p.id).delete()))},"Удалить"):""));
 }
@@ -1488,6 +1504,55 @@ function gameBuilder(){
   return h("div",{class:"layout"},left,rail);
 }
 function copyText(t){ navigator.clipboard?.writeText(t).then(()=>toast("Скопировано"),()=>toast("Не удалось скопировать")); }
+
+/* ================= личные сообщения ================= */
+/* Каждый пишет только в свой документ dms/<свой id>: {msgs:[{id,to,text,at,ctx}], read:{собеседник: время}}.
+   Подделать сообщение от чужого имени нельзя. В прототипе документы читают все участники — в рабочей версии сервер отдаёт переписку только двоим. */
+const DM_CAP=500;
+function dmAll(){ const out=[]; for(const [from,d] of Object.entries(S.dms)) for(const m of (d.msgs||[])) out.push({...m,from}); return out.sort((a,b)=>a.at-b.at); }
+function dmThread(peer){ return dmAll().filter(m=>(m.from===S.uid&&m.to===peer)||(m.from===peer&&m.to===S.uid)); }
+function dmLastRead(peer){ return S.dms[S.uid]?.read?.[peer]||0; }
+function dmUnread(peer){ return dmThread(peer).filter(m=>m.from===peer&&m.at>dmLastRead(peer)).length; }
+function dmPeers(){ const set=new Map(); for(const m of dmAll()){ const peer=m.from===S.uid?m.to:m.to===S.uid?m.from:null; if(peer) set.set(peer,m); } return [...set.entries()].sort((a,b)=>b[1].at-a[1].at); }
+function dmUnreadTotal(){ return dmPeers().reduce((n,[p])=>n+dmUnread(p),0); }
+let dmChain=Promise.resolve();
+function dmWrite(mut){ dmChain=dmChain.then(async()=>{ const cur=S.dms[S.uid]||{}; const next=JSON.parse(JSON.stringify({msgs:[],read:{},...cur})); delete next.id; mut(next); if(next.msgs.length>DM_CAP) next.msgs=next.msgs.slice(-DM_CAP); await S.db.doc("dms/"+S.uid).set(next); }).catch(e=>toast(errText(e))); return dmChain; }
+function openDM(peer,ctx,draft){ if(!peer||peer===S.uid) return; S.tab="dms"; S.dmPeer=peer; S.dmCtx=ctx||null; S.dmDraft=draft||""; S.q=""; S.person=null; const q=document.getElementById("q"); if(q) q.value=""; render(); window.scrollTo({top:0}); }
+function dmButton(peer,ctx,draft,label){ if(!peer||peer===S.uid||!isMember()) return ""; return h("button",{class:"btn sm",onclick:()=>openDM(peer,ctx,draft)},label||"Написать"); }
+function ctxCard(ctx){ if(!ctx) return ""; const r=ctx.type==="request"?S.requests.find(x=>x.id===ctx.id):null;
+  return h("button",{class:"dm-ctx",onclick:()=>{ if(ctx.type==="request"){ S.tab="market"; S.marketView="requests"; render(); } else if(ctx.type==="project"){ S.tab="projects"; render(); } }},
+    h("span",{class:"eyebrow",style:"margin:0"},ctx.type==="request"?"По запросу":ctx.type==="project"?"По проекту":"Контекст"),h("span",{},ctx.title||r?.title||"")); }
+function renderDMs(){
+  const peers=dmPeers(); let peer=S.dmPeer;
+  if(!peer&&peers.length) peer=S.dmPeer=peers[0][0];
+  const list=h("div",{class:"chlist dm-list"},h("div",{class:"eyebrow",style:"padding:4px 10px 6px"},"Диалоги"),
+    ...(peer&&!peers.find(([p])=>p===peer)?[[peer,null]]:[]).concat(peers).map(([p,last])=>{ const n=dmUnread(p);
+      return h("button",{class:"ch dm-peer","aria-current":String(p===peer),onclick:()=>{S.dmPeer=p;S.dmCtx=null;S.dmDraft="";render();}},
+        h("div",{class:"row",style:"gap:8px;flex-wrap:nowrap"},avatarEl(p,"sm"),h("div",{class:"grow",style:"min-width:0"},h("b",{},displayName(p)),h("span",{class:"ch-desc"},last?(last.from===S.uid?"Вы: ":"")+last.text:"Новый диалог")),n?h("span",{class:"count"},n):"")); }),
+    !peers.length&&!peer?h("p",{class:"small muted",style:"padding:6px 10px;margin:0"},"Диалогов пока нет. Нажмите «Написать» на профиле участника или у отклика на запрос."):"");
+  if(!peer) return h("div",{class:"chat"},list,h("div",{class:"chpane"},h("div",{class:"empty",style:"margin:auto"},h("h3",{},"Личные сообщения"),h("p",{},"Начните диалог с профиля участника, из каталога экспертов или из отклика на ваш запрос."))));
+  const thread=dmThread(peer);
+  const lastIn=thread.filter(m=>m.from===peer).reduce((x,m)=>Math.max(x,m.at),0);
+  if(lastIn>dmLastRead(peer)&&!dmMarking){ dmMarking=true; dmWrite(d=>{ d.read[peer]=lastIn; }).then(()=>{dmMarking=false;}); }
+  const box=h("div",{class:"msgs",id:"dm-msgs"}); let lastDay="";
+  if(!thread.length) box.append(h("div",{class:"empty"},h("h3",{},"Начало диалога с "+displayName(peer)),h("p",{},"Сообщение увидит только этот участник.")));
+  for(const m of thread){ const d=dayLabel(m.at); if(d!==lastDay){ box.append(h("div",{class:"day"},d)); lastDay=d; }
+    const mine=m.from===S.uid;
+    box.append(h("div",{class:"msg"+(mine?" me":"")},avatarEl(m.from,"sm"),h("div",{class:"bubble"},m.ctx?ctxCard(m.ctx):"",h("div",{class:"body-text"},m.text),h("div",{class:"meta"},hm(m.at)+(mine&&(S.dms[peer]?.read?.[S.uid]||0)>=m.at?" · прочитано":""))))); }
+  const ta=h("textarea",{id:"dm-text",placeholder:"Сообщение для "+displayName(peer)+" (Enter — отправить)",maxlength:2000});
+  if(S.dmDraft){ ta.value=S.dmDraft; ta.dataset.fresh="1"; S.dmDraft=""; setTimeout(()=>{ const el=document.getElementById("dm-text"); if(el){ el.focus(); el.setSelectionRange(el.value.length,el.value.length);} },0); }
+  const send=()=>{ const text=ta.value.trim(); if(!text) return; const ctx=S.dmCtx; const now=Date.now();
+    dmWrite(d=>{ d.msgs.push({id:"m"+now.toString(36),to:peer,text,at:now,...(ctx?{ctx}:{})}); }).then(()=>{ const el=document.getElementById("dm-text"); if(el) el.value=""; S.dmCtx=null; render(); }); };
+  ta.addEventListener("keydown",e=>{ if(e.key==="Enter"&&!e.shiftKey){ e.preventDefault(); send(); } });
+  const pp=S.profiles[peer]||{};
+  return h("div",{class:"chat"},list,h("div",{class:"chpane"},
+    h("div",{class:"chhead"},avatarEl(peer,"sm"),h("div",{class:"grow"},h("button",{class:"btn ghost",style:"padding:0;color:var(--ink);font-weight:600",onclick:()=>openPerson(peer)},displayName(peer)),h("div",{class:"small muted"},pp.headline||S.apps[peer]?.role||"")),trustBadge(peer)),
+    box,
+    h("div",{class:"composer"},S.dmCtx?h("div",{class:"row small"},h("div",{class:"grow"},ctxCard(S.dmCtx)),h("button",{class:"btn ghost sm",onclick:()=>{S.dmCtx=null;render();}},"✕")):"",
+      h("div",{class:"row"},h("div",{class:"grow"},ta),h("button",{class:"btn primary",disabled:!S.canWrite,onclick:send},"Отправить")),
+      h("div",{class:"small muted"},"Прототип: переписка хранится в общей базе страницы. В рабочей версии её будут видеть только двое."))));
+}
+let dmMarking=false;
 
 /* ================= справочник тегов ================= */
 function renderTagsRef(){
@@ -1677,7 +1742,7 @@ async function boot(){ document.body.classList.toggle("no-tags",!TAGS_ON);
   S.db=db; S.user=user; if(!db){ S.offline=true; render(); return; }
   const me=user?await user.me():null; S.uid=me?.id||null; S.isAdmin=!!me?.canEdit;
   const cw=user?await user.can("data.write"):null; S.canWrite=cw!==false;
-  const need=["channels","messages","blogs","comments","inits","ballots","apps","staff","profiles","requests","projects"];
+  const need=["channels","messages","blogs","comments","inits","ballots","apps","staff","profiles","requests","projects","dms"];
   const timer=setTimeout(()=>{S.stale=true;render();},10000);
   let pending=false; const schedule=()=>{ if(pending) return; pending=true; setTimeout(()=>{pending=false;render();},16); };
   const done=(k,snap)=>{ if(!snap.metadata.fromCache) S.loaded[k]=true; if(need.every(n=>S.loaded[n])){ clearTimeout(timer); S.stale=false; if(!S.ready){ S.ready=true; registerStaff(); } } schedule(); };
@@ -1694,6 +1759,7 @@ async function boot(){ document.body.classList.toggle("no-tags",!TAGS_ON);
   db.collection("profiles").onSnapshot(s=>{S.profiles=map(s);done("profiles",s);},fail("profiles"));
   db.collection("requests").orderBy("createdAt","desc").limit(300).onSnapshot(s=>{S.requests=list(s);done("requests",s);},fail("requests"));
   db.collection("projects").orderBy("createdAt","desc").limit(500).onSnapshot(s=>{S.projects=list(s);done("projects",s);},fail("projects"));
+  db.collection("dms").onSnapshot(s=>{S.dms=map(s);done("dms",s);},fail("dms"));
 }
 async function registerStaff(){ if(!S.isAdmin||!S.uid||S.staff[S.uid]) return; try{ await S.db.doc("staff/"+S.uid).set({since:Date.now()}); }catch(e){} }
 setInterval(()=>{ if(S.ready&&!document.hidden) render(); },60000);
