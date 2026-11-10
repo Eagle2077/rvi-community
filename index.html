@@ -190,6 +190,26 @@ svg text{fill:var(--muted);font-family:var(--body)}
 .toast{position:fixed;left:50%;bottom:calc(20px + env(safe-area-inset-bottom,0px));transform:translateX(-50%);background:var(--accent);color:var(--accent-ink);font-weight:600;padding:10px 16px;border-radius:8px;font-size:14px;z-index:20;max-width:calc(100% - 32px)}
 
 .no-tags .tags-only{display:none!important}
+.profile-page{max-width:900px;margin:0 auto;display:flex;flex-direction:column;gap:0}
+.profile-page>.btn.ghost{align-self:flex-start;margin-bottom:14px}
+.pf-head{display:flex;gap:20px;align-items:flex-start;flex-wrap:wrap;padding-bottom:20px}
+.avatar.xl{width:76px;height:76px;border-radius:16px}
+.pf-sec{border-top:1px solid var(--line);padding-block:18px}
+.subtabs{display:flex;gap:18px;border-bottom:1px solid var(--line)}
+.subtabs button{border:0;background:none;color:var(--muted);padding:6px 0 8px;border-bottom:2px solid transparent;font-size:14px}
+.subtabs button[aria-selected="true"]{color:var(--accent);border-color:var(--accent)}
+.asks{display:flex;flex-direction:column}
+.ask{display:flex;flex-direction:column;gap:6px;padding-block:14px;border-bottom:1px solid var(--line)}
+.ask:last-child{border-bottom:0}
+.ask-text{font-size:16px;white-space:pre-wrap;word-wrap:break-word;max-width:72ch}
+.chip.ask-st{border-radius:999px}
+.chip.st-active{color:var(--accent);border-color:var(--accent-soft);background:transparent}
+.chip.st-inwork{color:var(--ink);border-color:var(--accent-soft);background:var(--accent-soft)}
+.chip.st-done{color:var(--yes);border-color:var(--yes-soft);background:transparent}
+.chip.st-stale{color:var(--muted)}
+.exp-row{display:grid;grid-template-columns:140px minmax(0,1fr);gap:16px;padding-block:12px;border-top:1px solid var(--line)}
+.exp-row:first-of-type{border-top:0}
+@media (max-width:560px){.exp-row{grid-template-columns:1fr;gap:2px}}
 /* ===== Фирменный слой РВИ ===== */
 :root{--r:4px}
 body{background-color:var(--bg);background-image:linear-gradient(var(--grid) 1px,transparent 1px),linear-gradient(90deg,var(--grid) 1px,transparent 1px);background-size:56px 56px;background-attachment:fixed}
@@ -373,6 +393,17 @@ if(!store._v5){
     g2:{author:"u_oleg",title:"Карманный городок",studio:"Pixel Forge",stage:"release",link:"",tags:["sim","city","sandbox","cozy","casual","top","3d","lowpoly","touch","sp","online","indie"],createdAt:now-20*D},
     g3:{author:"u_irina",title:"Империя рек",studio:"Издатель",stage:"dev",link:"",tags:["strategy","explore","expand","exploit","conquer","tb","iso","3d","realistic","military","sp","mp","pvp","kbm","online"],createdAt:now-4*D}};
   store._v5=true; ls.set(KEY_DB,store);
+}
+// «Ищу и предлагаю» пунктами со статусами и историей + источник знакомства
+if(!store._v6){
+  const P=store.profiles||{}; const d=x=>now-x*D;
+  const A=(id,list,source)=>{ if(!P[id]) return; P[id].asks=list.map(([kind,text,status,c,u],i)=>({id:"a"+id+i,kind,text,status,createdAt:d(c),updatedAt:d(u)})); if(source) P[id].source=source; };
+  A("u_irina",[["seek","Спикеров для отраслевой конференции в декабре.","inwork",14,3],["give","Помогу разобраться с грантами ИРИ и реестром студий, сведу с издателями.","active",30,30],["seek","Студии для исследования «Гейминг в России 2026».","done",60,20]],"event");
+  A("u_oleg",[["seek","Геймдизайнера на баланс экономики в Pixel Forge, удалённо.","inwork",13,2],["give","Разборы монетизации без лутбоксов, шаблон GDD для мобильных игр.","active",6,2],["seek","Художника по UI на мобильный проект.","done",40,25]],"tg");
+  A("u_maria",[["seek","Проект на фриланс: концепт персонажей или UI для инди-игры.","active",8,8],["give","Ревью портфолио начинающих художников.","active",20,5]],"member");
+  A("u_artem",[["seek","Программиста C++ на Unreal в Север Геймз.","active",5,5],["give","Посмотрю сетевой код и профилирование на UE5.","active",9,9],["seek","Издателя для «Северного рейса».","stale",50,15]],"site");
+  if(store.applications?.u_denis) store.applications.u_denis.source="member";
+  store._v6=true; ls.set(KEY_DB,store);
 }
 const people=ls.get(KEY_P);
 const meId=ls.get(KEY_ME)||people[0].id;
@@ -666,31 +697,74 @@ function identityCard(){
 }
 
 /* ================= визитка: кто, ищу, предлагаю ================= */
-/* Вместо выбора целей из списка — две короткие строки, как закреплённый пост. Обновляются когда угодно, видна дата. */
-function introOf(id){ const p=S.profiles[id]||{}, a=S.apps[id]||{}; const i=p.intro||{};
+/* «Ищу и предлагаю» — список пунктов со статусом и датами (по макету Линара):
+   Актуально → В работе → Сделано · Неактуально. Актуальные — первые два статуса, остальное уходит в историю. */
+const ASK_STATUS={active:"Актуально",inwork:"В работе",done:"Сделано",stale:"Неактуально"};
+const ASK_KIND={seek:"Ищу",give:"Предлагаю"};
+const isCurrent=a=>a.status==="active"||a.status==="inwork";
+const dayMonth=t=>new Date(t).toLocaleDateString("ru",{day:"numeric",month:"long"});
+function asksOf(id){
+  const p=S.profiles[id]||{}, a=S.apps[id]||{};
+  if(Array.isArray(p.asks)) return p.asks;
+  const i=p.intro||{}, at=i.updatedAt||a.updatedAt||a.createdAt||Date.now(), out=[];
+  const seek=i.seek||a.seek, give=i.give||a.give;
+  if(seek) out.push({id:"legacy-seek",kind:"seek",text:seek,status:"active",createdAt:at,updatedAt:at});
+  if(give) out.push({id:"legacy-give",kind:"give",text:give,status:"active",createdAt:at,updatedAt:at});
+  return out;
+}
+function introOf(id){ const p=S.profiles[id]||{}, a=S.apps[id]||{}; const cur=asksOf(id).filter(isCurrent);
   return {who:[p.headline||a.role,p.company||a.org,a.years?plural(a.years,"год","года","лет")+" в индустрии":""].filter(Boolean).join(" · "),
-    about:p.about||a.about||"", seek:i.seek||a.seek||"", give:i.give||a.give||"", at:i.updatedAt||a.updatedAt||a.createdAt||0}; }
+    about:p.about||a.about||"", seek:cur.find(x=>x.kind==="seek")?.text||"", give:cur.find(x=>x.kind==="give")?.text||""}; }
+function askItem(id,a,editable){
+  const set=status=>saveAsks(list=>list.map(x=>x.id===a.id?{...x,status,updatedAt:Date.now()}:x),"Статус: "+ASK_STATUS[status].toLowerCase());
+  return h("div",{class:"ask"},
+    h("div",{class:"row",style:"gap:8px"},h("span",{class:"eyebrow",style:"margin:0"},ASK_KIND[a.kind]),h("span",{class:"chip ask-st st-"+a.status},ASK_STATUS[a.status])),
+    h("div",{class:"ask-text"},a.text),
+    tagChips(autoTag(a.text)),
+    h("div",{class:"small muted row",style:"gap:16px"},h("span",{},"Создано "+dayMonth(a.createdAt)),a.updatedAt&&a.updatedAt!==a.createdAt?h("span",{},"Обновлено "+dayMonth(a.updatedAt)):""),
+    editable?h("div",{class:"row",style:"gap:6px"},
+      ...["active","inwork","done"].flatMap((st,i)=>[i?h("span",{class:"muted"},"→"):"",h("button",{class:"chip","aria-pressed":String(a.status===st),disabled:!S.canWrite,onclick:()=>set(st)},ASK_STATUS[st])]),
+      h("button",{class:"chip","aria-pressed":String(a.status==="stale"),disabled:!S.canWrite,onclick:()=>set("stale")},ASK_STATUS.stale),
+      h("div",{class:"grow"}),
+      h("button",{class:"btn ghost sm danger",onclick:e=>confirmInline(e.currentTarget,"Удалить пункт?",()=>saveAsks(list=>list.filter(x=>x.id!==a.id),"Удалено"))},"Удалить")):"");
+}
+function saveAsks(mut,msg){
+  return guard(async()=>{ const base=S.profiles[S.uid]||{name:S.apps[S.uid]?.name||displayName(S.uid),visibility:"all",hiddenFrom:[],allowedFor:[]};
+    const cur=asksOf(S.uid).map(x=>x.id.startsWith("legacy")?{...x,id:"a"+Date.now().toString(36)+x.kind}:x);
+    await S.db.doc("profiles/"+S.uid).set({...base,asks:mut(cur),updatedAt:Date.now()}); if(msg) toast(msg); });
+}
+function asksSection(id,editable){
+  const all=asksOf(id), cur=all.filter(isCurrent), hist=all.filter(a=>!isCurrent(a));
+  const tab=S.askTab||"current", list=(tab==="current"?cur:hist).slice().sort((a,b)=>(a.kind===b.kind?0:a.kind==="seek"?-1:1)||b.updatedAt-a.updatedAt);
+  const sec=h("div",{class:"stack",style:"gap:12px"},
+    h("div",{},h("div",{class:"eyebrow"},"Что сейчас происходит"),h("h3",{style:"font-size:20px;margin-top:4px"},"Ищу и предлагаю"),
+      h("div",{class:"small muted"},"Свободный текст от участника · статус помогает понять, актуально ли это")),
+    h("div",{class:"subtabs"},h("button",{"aria-selected":String(tab==="current"),onclick:()=>{S.askTab="current";render();}},"Актуальные"+(cur.length?" · "+cur.length:"")),
+      h("button",{"aria-selected":String(tab==="history"),onclick:()=>{S.askTab="history";render();}},"История"+(hist.length?" · "+hist.length:""))));
+  if(editable&&tab==="current"){
+    const kind=h("select",{id:"ask-kind",style:"width:auto"},h("option",{value:"seek"},"Ищу"),h("option",{value:"give"},"Предлагаю"));
+    const text=h("input",{type:"text",id:"ask-text",maxlength:280,placeholder:"Например: геймдизайнера на баланс экономики, удалённо"});
+    const add=()=>{ const t=text.value.trim(); if(!t) return toast("Напишите, что ищете или предлагаете."); const now=Date.now();
+      saveAsks(l=>[...l,{id:"a"+now.toString(36),kind:kind.value,text:t,status:"active",createdAt:now,updatedAt:now}],"Добавлено").then(()=>{ const el=document.getElementById("ask-text"); if(el) el.value=""; }); };
+    text.addEventListener("keydown",e=>{ if(e.key==="Enter") add(); });
+    sec.append(h("div",{class:"row"},kind,h("div",{class:"grow"},text),h("button",{class:"btn primary",disabled:!S.canWrite,onclick:add},"Добавить")));
+  }
+  sec.append(list.length?h("div",{class:"asks"},...list.map(a=>askItem(id,a,editable))):h("p",{class:"small muted",style:"margin:0"},tab==="current"?(editable?"Пока пусто. Добавьте, что вы сейчас ищете и что можете предложить.":"Сейчас ничего не ищет и не предлагает."):"Завершённых и неактуальных пунктов нет."));
+  const off=(S.profiles[id]?.offer?.formats||[]).map(f=>FORMATS[f]);
+  if(off.length&&tab==="current") sec.append(h("div",{class:"row small"},h("span",{class:"muted"},"Готов участвовать как эксперт:"),...off.map(f=>h("span",{class:"chip"},f))));
+  return sec;
+}
+/* Компактная версия для анкеты и карточек */
 function introBlock(id){
-  const i=introOf(id); const off=(S.profiles[id]?.offer?.formats||[]).map(f=>FORMATS[f]);
+  const i=introOf(id), cur=asksOf(id).filter(isCurrent);
   const row=(label,...val)=>h("div",{style:"display:grid;grid-template-columns:120px minmax(0,1fr);gap:10px"},h("div",{class:"eyebrow",style:"padding-top:2px"},label),h("div",{class:"body-text"},...val));
-  const none=h("span",{class:"muted"},"не указано");
   return h("div",{class:"stack",style:"gap:8px"},
     i.who||i.about?row("Кто",i.who?h("b",{},i.who):"",i.who&&i.about?"\n":"",i.about):"",
-    row("Ищу",i.seek||none,tagChips(autoTag(i.seek))),
-    row("Предлагаю",i.give||none,off.length?h("div",{class:"tags",style:"margin-top:6px"},...off.map(f=>h("span",{class:"chip"},f))):"",tagChips(autoTag(i.give))),
-    i.at&&(i.seek||i.give)?h("div",{class:"small muted"},"Обновлено "+ago(i.at)):"");
+    ...cur.map(a=>row(ASK_KIND[a.kind],a.text," ",h("span",{class:"chip ask-st st-"+a.status,style:"font-size:11px"},ASK_STATUS[a.status]))),
+    !cur.length?row("Ищу / предлагаю",h("span",{class:"muted"},"не указано")):"");
 }
-function introCard(){
-  const i=introOf(S.uid);
-  const seek=h("textarea",{id:"in-seek",maxlength:280,style:"min-height:52px",placeholder:"Сейчас ищу: геймдизайнера на баланс экономики, издателя для ПК-игры, менторство по Unreal"},i.seek);
-  const give=h("textarea",{id:"in-give",maxlength:280,style:"min-height:52px",placeholder:"Могу: рассказать, как получить грант ИРИ, сделать ревью портфолио, посмотреть сетевой код"},i.give);
-  const save=()=>guard(async()=>{ const base=S.profiles[S.uid]||{name:displayName(S.uid),visibility:"all",hiddenFrom:[],allowedFor:[]};
-    await S.db.doc("profiles/"+S.uid).set({...base,intro:{...(base.intro||{}),seek:seek.value.trim(),give:give.value.trim(),updatedAt:Date.now()},updatedAt:Date.now()}); toast("Визитка обновлена"); });
-  return h("div",{class:"card stack"},h("div",{class:"eyebrow"},"Визитка: ищу и предлагаю"),
-    h("p",{class:"small muted",style:"margin:0"},"Две строки, как закреплённый пост: что вам сейчас нужно и чем вы можете помочь. Видны первыми на карточке и в анкете, обновляйте, когда меняются планы."),
-    h("label",{},"Ищу",seek),h("label",{},"Предлагаю",give),
-    h("div",{},h("button",{class:"btn primary",disabled:!S.canWrite,onclick:save},"Обновить визитку")));
-}
+function introCard(){ return h("div",{class:"card"},asksSection(S.uid,true)); }
+const SOURCES={tg:"Telegram-чат РВИ",event:"Мероприятие РВИ",member:"Рекомендация участника",site:"Сайт forgamedev.ru",other:"Другое"};
 
 /* ================= writes ================= */
 let chain=Promise.resolve();
@@ -774,9 +848,10 @@ function renderGate(){
     h("label",{},"Портфолио, Steam-страница или сайт студии",h("input",{type:"text",id:"app-links",required:true,maxlength:300,value:v.links||"",placeholder:"https://…"})),
     h("label",{},"Что ищете в сообществе",h("textarea",{id:"app-seek",maxlength:280,style:"min-height:52px",placeholder:"Например: издателя для ПК-игры, людей в команду, разобраться с реестром студий"},v.seek||"")),
     h("label",{},"Что можете предложить",h("textarea",{id:"app-give",maxlength:280,style:"min-height:52px",placeholder:"Например: расскажу, как мы получили грант ИРИ; ревью портфолио художникам"},v.give||"")),
+    h("label",{},"Откуда узнали о сообществе",h("select",{id:"app-source"},...Object.entries(SOURCES).map(([k,l])=>h("option",{value:k,selected:v.source===k},l)))),
     h("div",{class:"row"},h("button",{class:"btn primary",type:"submit",disabled:!S.canWrite},mine?"Сохранить анкету":"Отправить на голосование")));
   f.addEventListener("submit",e=>{e.preventDefault(); const q=id=>f.querySelector(id).value.trim();
-    const data={name:q("#app-name"),org:q("#app-org"),role:q("#app-role"),years:parseInt(q("#app-years"),10)||0,about:q("#app-about"),links:q("#app-links"),seek:q("#app-seek"),give:q("#app-give"),createdAt:mine?.createdAt||Date.now(),updatedAt:Date.now()};
+    const data={name:q("#app-name"),org:q("#app-org"),role:q("#app-role"),years:parseInt(q("#app-years"),10)||0,about:q("#app-about"),links:q("#app-links"),seek:q("#app-seek"),give:q("#app-give"),source:q("#app-source"),createdAt:mine?.createdAt||Date.now(),updatedAt:Date.now()};
     if(!data.name||!data.about||!data.links||!data.org) return toast("Заполните имя, компанию, рассказ о себе и ссылку на работы.");
     guard(async()=>{ await S.db.doc("applications/"+S.uid).set(data); toast(mine?"Анкета обновлена":"Анкета отправлена"); });});
   box.append(f, identityCard()); return box;
@@ -915,28 +990,41 @@ function personFull(id){
   const p=S.profiles[id]||{}, app=S.apps[id]||{}, ex=expertise(id);
   const msgs=S.messages.filter(m=>m.author===id).length, posts=S.blogs.filter(b=>b.author===id);
   const myEnd=S.ballots[S.uid]?.endorse?.[id]||{};
-  return h("div",{class:"layout"},h("div",{class:"col"},back,
-    h("div",{class:"card stack"},
-      h("div",{class:"post-head",style:"gap:14px"},avatarEl(id,"lg"),h("div",{class:"grow"},h("h2",{style:"font-size:22px"},displayName(id)),h("div",{class:"row",style:"margin:4px 0"},trustBadge(id,true),vouchButton(id)),h("div",{class:"muted"},p.headline||app.role||""),h("div",{class:"small muted"},[p.company||app.org,p.city].filter(Boolean).join(" · "))),
-        S.staff[id]?h("span",{class:"chip admin"},"Админ"):""),
-      introBlock(id),
-      (p.links||app.links)?h("div",{class:"small"},"Ссылки: ",p.links||app.links):"",
-      (p.socials?.linkedin||p.socials?.artstation)?h("div",{class:"row"},
-        p.socials.linkedin?h("a",{class:"btn sm",href:p.socials.linkedin,target:"_blank",rel:"noopener nofollow"},"LinkedIn"):"",
-        p.socials.artstation?h("a",{class:"btn sm",href:p.socials.artstation,target:"_blank",rel:"noopener nofollow"},"ArtStation"):""):""),
-    h("div",{class:"card stack tags-only"},h("div",{class:"eyebrow"},"Экспертиза"),
+  const exps=(p.experience||[]).slice().sort((a,b)=>(b.from||0)-(a.from||0));
+  const firstYear=Math.min(...exps.map(e=>e.from||9999)); const years=app.years||(firstYear<9999?new Date().getFullYear()-firstYear:0);
+  const since=S.staff[id]?.since||app.createdAt; const src=p.source||app.source;
+  const t=trust(id), vby=vouchersOf(id);
+  const links=[p.links||app.links?h("a",{href:p.links||app.links,target:"_blank",rel:"noopener nofollow"},"Сайт"):"",
+    p.socials?.linkedin?h("a",{href:p.socials.linkedin,target:"_blank",rel:"noopener nofollow"},"LinkedIn"):"",
+    p.socials?.artstation?h("a",{href:p.socials.artstation,target:"_blank",rel:"noopener nofollow"},"ArtStation"):""].filter(Boolean);
+  const sep=()=>h("span",{class:"muted"},"·");
+  return h("div",{class:"profile-page"},back,
+    h("div",{class:"pf-head"},avatarEl(id,"xl"),
+      h("div",{class:"grow"},h("h2",{style:"font-size:28px"},displayName(id)),
+        h("div",{style:"font-size:16px;margin-top:4px"},p.headline||app.role||""),
+        h("div",{class:"small muted",style:"margin-top:2px"},[p.company||app.org,p.city,years?plural(years,"год","года","лет")+" в индустрии":""].filter(Boolean).join(" · "))),
+      h("div",{class:"stack",style:"align-items:flex-end;gap:8px"},trustBadge(id,true),vouchButton(id))),
+    h("div",{class:"pf-sec row small",style:"gap:10px 20px"},h("b",{},"Связь с РВИ"),
+      h("span",{class:"muted"},(S.staff[id]?"Администратор сообщества":"Участник сообщества")+(since?" с "+new Date(since).toLocaleDateString("ru",{day:"numeric",month:"long",year:"numeric"}).replace(/^\d+\s/,"").replace(" г.",""):"")),
+      src?h("span",{style:"color:var(--accent)"},"Источник знакомства: "+(SOURCES[src]||src)):"",
+      vby.length?h("span",{class:"muted"},"Знают лично: "+vby.map(displayName).join(", ")):""),
+    h("div",{class:"pf-sec"},asksSection(id,id===S.uid)),
+    exps.length?h("div",{class:"pf-sec stack",style:"gap:0"},h("div",{class:"eyebrow",style:"margin-bottom:8px"},"Опыт"),
+      ...exps.map(e=>h("div",{class:"exp-row"},h("div",{class:"small muted"},(e.from||"?")+" — "+(e.to||"сейчас")),
+        h("div",{},h("b",{},e.role+" · "+e.company),e.description?h("div",{class:"small muted"},e.description):"")))):"",
+    (p.about||app.about)?h("div",{class:"pf-sec stack"},h("div",{class:"eyebrow"},"О себе"),h("div",{class:"body-text"},p.about||app.about)):"",
+    h("div",{class:"pf-sec tags-only"},h("div",{class:"eyebrow"},"Экспертиза"),
       ex.length?h("div",{class:"stack"},...ex.map(e=>h("div",{class:"row"},
         levelChip(id,e),
         h("b",{class:"grow"},"#"+TAG[e.id].label),
         h("span",{class:"small muted"},plural(e.years,"год","года","лет")+" опыта · "+plural(e.endorse,"подтверждение","подтверждения","подтверждений")),
         id!==S.uid?h("button",{class:"btn sm"+(myEnd[e.id]?" sel-yes":""),disabled:!S.canWrite,onclick:()=>writeBallot(b=>{ b.endorse[id]=b.endorse[id]||{}; if(b.endorse[id][e.id]) delete b.endorse[id][e.id]; else b.endorse[id][e.id]=true; })},myEnd[e.id]?"Подтверждено":"Подтвердить"):""))):h("p",{class:"muted small",style:"margin:0"},"Участник пока не заполнил опыт.")),
-    (p.experience||[]).length?h("div",{class:"card stack"},h("div",{class:"eyebrow"},"Опыт"),...p.experience.slice().sort((a,b)=>(b.from||0)-(a.from||0)).map(e=>h("div",{class:"exp"},
-      h("b",{},e.role),h("span",{class:"small muted"},e.company+" · "+(e.from||"")+"–"+(e.to||"н.в.")),e.description?h("span",{class:"small"},e.description):"",tagChips(autoTag(e.role,e.description))))):"",
-    posts.length?h("div",{class:"card stack"},h("div",{class:"eyebrow"},"Блог"),...posts.map(b=>h("button",{class:"btn ghost",style:"text-align:left;color:var(--ink);padding:4px 0",onclick:()=>{S.tab="blogs";S.openBlog=b.id;S.person=null;render();}},b.title))):""),
-    h("div",{class:"col"},h("div",{class:"card stack small"},h("div",{class:"eyebrow"},"Активность"),
-      h("div",{},plural(msgs,"сообщение","сообщения","сообщений")+" в чатах"),h("div",{},plural(posts.length,"запись","записи","записей")+" в блоге"),
-      h("div",{class:"tags"},...memberTags(id).map(t=>h("span",{class:"chip tag"},"#"+TAG[t].label)))),
-      levelsCard()));
+    posts.length?h("div",{class:"pf-sec stack",style:"gap:4px"},h("div",{class:"eyebrow"},"Блог"),...posts.map(b=>h("button",{class:"btn ghost",style:"text-align:left;color:var(--ink);padding:4px 0",onclick:()=>{S.tab="blogs";S.openBlog=b.id;S.person=null;render();}},b.title))):"",
+    h("div",{class:"pf-sec row small",style:"gap:8px 14px"},
+      h("span",{},h("b",{},"Подтверждение: "),h("span",{class:"muted"},t.level?t.label.toLowerCase()+(t.methods.length?" ("+t.methods.map(k=>ID_METHODS[k].label).join(", ")+")":""):"не подтверждён")),sep(),
+      h("span",{class:"muted"},"Блог · "+plural(posts.length,"запись","записи","записей")),sep(),
+      h("span",{class:"muted"},"Активность · "+plural(msgs,"сообщение","сообщения","сообщений")),
+      ...(links.length?[sep(),h("span",{class:"muted row",style:"gap:10px;display:inline-flex"},"Ссылки:",...links)]:[])));
 }
 function levelsCard(){ return h("div",{class:"card flat stack small tags-only"},h("div",{class:"eyebrow"},"Кто есть кто"),
   h("div",{},h("b",{},"Специалист")," — указал направление в профиле."),
@@ -1531,7 +1619,7 @@ async function boot(){ document.body.classList.toggle("no-tags",!TAGS_ON);
   const cw=user?await user.can("data.write"):null; S.canWrite=cw!==false;
   const need=["channels","messages","blogs","comments","inits","ballots","apps","staff","profiles","requests","projects"];
   const timer=setTimeout(()=>{S.stale=true;render();},10000);
-  let pending=false; const schedule=()=>{ if(pending) return; pending=true; requestAnimationFrame(()=>{pending=false;render();}); };
+  let pending=false; const schedule=()=>{ if(pending) return; pending=true; setTimeout(()=>{pending=false;render();},16); };
   const done=(k,snap)=>{ if(!snap.metadata.fromCache) S.loaded[k]=true; if(need.every(n=>S.loaded[n])){ clearTimeout(timer); S.stale=false; if(!S.ready){ S.ready=true; registerStaff(); } } schedule(); };
   const fail=k=>e=>{ if(e.code!=="revoked") toast("Часть данных не загрузилась."); done(k,{metadata:{fromCache:false}}); };
   const list=s=>s.docs.map(d=>({...d.data(),id:d.id})); const map=s=>Object.fromEntries(s.docs.map(d=>[d.id,{...d.data(),id:d.id}]));
