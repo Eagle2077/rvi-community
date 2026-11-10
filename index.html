@@ -233,6 +233,10 @@ body::before{background:var(--bg)}
 .search input[type=text]{padding-left:40px}
 .dm-ctx{display:flex;flex-direction:column;gap:2px;width:100%;text-align:left;border:0;border-left:3px solid var(--accent);background:rgba(0,0,0,.18);border-radius:4px;padding:6px 10px;margin-bottom:6px;color:var(--ink);font-size:13px}
 .dm-list .ch{padding:8px}
+.contacts{display:grid;grid-template-columns:repeat(auto-fill,minmax(260px,1fr));gap:4px 24px}
+.contact{display:grid;grid-template-columns:110px minmax(0,1fr) auto auto;gap:8px;align-items:center;padding-block:4px;border-bottom:1px dashed var(--line)}
+.contact a,.contact-val{overflow:hidden;text-overflow:ellipsis;white-space:nowrap;user-select:all}
+.contact .btn.ghost{padding:2px 6px;font-size:12px}
 .dm-list .ch .count{flex:none}
 /* Левая панель разделов */
 :root{--side-w:68px}
@@ -458,6 +462,15 @@ if(!store._v7){
       {id:"d4",to:"u_irina",text:"Договорились, жду.",at:t(19)}],read:{u_irina:t(20)}},
     u_maria:{msgs:[{id:"d5",to:"u_irina",text:"Здравствуйте! Можно вопрос про стажировки для художников? Хочу понять, есть ли программы у РВИ.",at:t(3)}],read:{}}};
   store._v7=true; ls.set(KEY_DB,store);
+}
+// контакты (адреса выдуманные, домен example)
+if(!store._v8){
+  const P=store.profiles||{}; const C=(id,list)=>{ if(P[id]) P[id].contacts=list.map(([type,value,vis])=>({type,value,vis})); };
+  C("u_irina",[["telegram","@irina_rvi","all"],["email","irina@example.ru","all"],["phone","+7 900 000-00-01","none"],["site","forgamedev.ru","all"]]);
+  C("u_oleg",[["telegram","@oleg_gd","all"],["email","oleg@example.ru","dm"],["linkedin","linkedin.com/in/oleg-example","all"]]);
+  C("u_maria",[["telegram","@maria_art","dm"],["artstation","artstation.com/maria-example","all"],["email","maria@example.ru","dm"]]);
+  C("u_artem",[["telegram","@artem_ue","all"],["github","github.com/artem-example","all"],["phone","+7 900 000-00-04","dm"]]);
+  store._v8=true; ls.set(KEY_DB,store);
 }
 const people=ls.get(KEY_P);
 const meId=ls.get(KEY_ME)||people[0].id;
@@ -1084,6 +1097,7 @@ function personFull(id){
       h("span",{class:"muted"},(S.staff[id]?"Администратор сообщества":"Участник сообщества")+(since?" с "+new Date(since).toLocaleDateString("ru",{day:"numeric",month:"long",year:"numeric"}).replace(/^\d+\s/,"").replace(" г.",""):"")),
       src?h("span",{style:"color:var(--accent)"},"Источник знакомства: "+(SOURCES[src]||src)):"",
       vby.length?h("span",{class:"muted"},"Знают лично: "+vby.map(displayName).join(", ")):""),
+    contactsSection(id),
     h("div",{class:"pf-sec"},asksSection(id,id===S.uid)),
     exps.length?h("div",{class:"pf-sec stack",style:"gap:0"},h("div",{class:"eyebrow",style:"margin-bottom:8px"},"Опыт"),
       ...exps.map(e=>h("div",{class:"exp-row"},h("div",{class:"small muted"},(e.from||"?")+" — "+(e.to||"сейчас")),
@@ -1137,7 +1151,7 @@ function renderMe(){
     const skills=[...f.querySelectorAll("#pf-skills [aria-pressed=true]")].map(b=>b.dataset.id);
     const data={...p,name:v("pf-name"),headline:v("pf-head"),company:v("pf-company"),city:v("pf-city"),about:v("pf-about"),links:v("pf-links"),skills,experience,visibility:p.visibility||"all",hiddenFrom:p.hiddenFrom||[],allowedFor:p.allowedFor||[],updatedAt:Date.now()};
     guard(async()=>{ await S.db.doc("profiles/"+S.uid).set(data); delete f.dataset.dirty; toast("Профиль сохранён"); render(); });});
-  left.append(introCard(), identityCard(), f);
+  left.append(introCard(), contactsCard(), identityCard(), f);
   left.append(offerCard(p), importCard(p), privacyCard(p), exportCard(p));
   const ex=expertise(S.uid);
   const rail=h("div",{class:"col"},h("div",{class:"card stack tags-only"},h("div",{class:"eyebrow"},"Ваши уровни"),
@@ -1518,7 +1532,7 @@ function dmUnreadTotal(){ return dmPeers().reduce((n,[p])=>n+dmUnread(p),0); }
 let dmChain=Promise.resolve();
 function dmWrite(mut){ dmChain=dmChain.then(async()=>{ const cur=S.dms[S.uid]||{}; const next=JSON.parse(JSON.stringify({msgs:[],read:{},...cur})); delete next.id; mut(next); if(next.msgs.length>DM_CAP) next.msgs=next.msgs.slice(-DM_CAP); await S.db.doc("dms/"+S.uid).set(next); }).catch(e=>toast(errText(e))); return dmChain; }
 function openDM(peer,ctx,draft){ if(!peer||peer===S.uid) return; S.tab="dms"; S.dmPeer=peer; S.dmCtx=ctx||null; S.dmDraft=draft||""; S.q=""; S.person=null; const q=document.getElementById("q"); if(q) q.value=""; render(); window.scrollTo({top:0}); }
-function dmButton(peer,ctx,draft,label){ if(!peer||peer===S.uid||!isMember()) return ""; return h("button",{class:"btn sm",onclick:()=>openDM(peer,ctx,draft)},label||"Написать"); }
+function dmButton(peer,ctx,draft,label){ if(!peer||peer===S.uid||!isMember()) return ""; return h("button",{class:"btn sm primary",onclick:()=>openDM(peer,ctx,draft)},label||"Написать"); }
 function ctxCard(ctx){ if(!ctx) return ""; const r=ctx.type==="request"?S.requests.find(x=>x.id===ctx.id):null;
   return h("button",{class:"dm-ctx",onclick:()=>{ if(ctx.type==="request"){ S.tab="market"; S.marketView="requests"; render(); } else if(ctx.type==="project"){ S.tab="projects"; render(); } }},
     h("span",{class:"eyebrow",style:"margin:0"},ctx.type==="request"?"По запросу":ctx.type==="project"?"По проекту":"Контекст"),h("span",{},ctx.title||r?.title||"")); }
@@ -1553,6 +1567,63 @@ function renderDMs(){
       h("div",{class:"small muted"},"Прототип: переписка хранится в общей базе страницы. В рабочей версии её будут видеть только двое."))));
 }
 let dmMarking=false;
+
+/* ================= контакты ================= */
+const CONTACT_TYPES={
+  telegram:{label:"Telegram",ph:"@ник",href:v=>"https://t.me/"+v.replace(/^@|^https?:\/\/t\.me\//,"")},
+  email:{label:"Почта",ph:"имя@студия.ru"},
+  phone:{label:"Телефон",ph:"+7 900 000-00-00"},
+  vk:{label:"VK",ph:"vk.com/ник",href:v=>/^https?:/.test(v)?v:"https://"+(v.includes("vk.com")?v:"vk.com/"+v.replace(/^@/,""))},
+  site:{label:"Сайт",ph:"https://…",href:v=>/^https?:/.test(v)?v:"https://"+v},
+  linkedin:{label:"LinkedIn",ph:"linkedin.com/in/ник",href:v=>/^https?:/.test(v)?v:"https://"+v},
+  artstation:{label:"ArtStation",ph:"artstation.com/ник",href:v=>/^https?:/.test(v)?v:"https://"+v},
+  habr:{label:"Хабр Карьера",ph:"career.habr.com/ник",href:v=>/^https?:/.test(v)?v:"https://"+v},
+  github:{label:"GitHub",ph:"github.com/ник",href:v=>/^https?:/.test(v)?v:"https://"+v},
+  other:{label:"Другое",ph:"Discord, сайт портфолио…"}
+};
+const CONTACT_VIS={all:"Всем участникам",dm:"Тем, с кем переписывался",none:"Никому"};
+function contactsOf(id){
+  const p=S.profiles[id]||{}; const list=(p.contacts||[]).slice();
+  const has=t=>list.some(c=>c.type===t);
+  if(p.socials?.linkedin&&!has("linkedin")) list.push({type:"linkedin",value:p.socials.linkedin,vis:"all"});
+  if(p.socials?.artstation&&!has("artstation")) list.push({type:"artstation",value:p.socials.artstation,vis:"all"});
+  const tg=p.verified?.telegram?.handle; if(tg&&!has("telegram")) list.push({type:"telegram",value:tg,vis:"all"});
+  return list;
+}
+function canSeeContact(owner,c){ if(owner===S.uid) return true; if(!canSee(owner)) return false; const v=c.vis||"all"; if(v==="all") return true; if(v==="dm") return dmThread(owner).length>0; return false; }
+function contactsSection(id){
+  const all=contactsOf(id), shown=all.filter(c=>canSeeContact(id,c)), hidden=all.length-shown.length;
+  if(!all.length) return id===S.uid?h("div",{class:"pf-sec small muted"},"Контакты не указаны. Добавьте их в «Мой профиль» → «Контакты»."):"";
+  const tgOk=S.profiles[id]?.verified?.telegram?.handle;
+  return h("div",{class:"pf-sec stack",style:"gap:6px"},h("div",{class:"eyebrow"},"Контакты"),
+    h("div",{class:"contacts"},...shown.map(c=>{ const T=CONTACT_TYPES[c.type]||CONTACT_TYPES.other; const href=T.href?T.href(c.value):null;
+      return h("div",{class:"contact"},h("span",{class:"small muted"},T.label),
+        href?h("a",{href,target:"_blank",rel:"noopener nofollow"},c.value):h("span",{class:"contact-val"},c.value),
+        c.type==="telegram"&&tgOk&&norm(tgOk)===norm(c.value)?h("span",{style:"color:var(--accent)",title:"Аккаунт подтверждён"},"✓"):"",
+        h("button",{class:"btn ghost sm",title:"Скопировать",onclick:()=>copyText(c.value)},"Копировать"),
+        id===S.uid&&c.vis!=="all"?h("span",{class:"chip",style:"font-size:11px"},CONTACT_VIS[c.vis]):""); })),
+    hidden>0?h("div",{class:"small muted"},plural(hidden,"контакт скрыт","контакта скрыто","контактов скрыто")+(all.some(c=>c.vis==="dm")&&!dmThread(id).length?(hidden===1?" — откроется":" — откроются")+", когда начнёте переписку.":".")," ",dmButton(id)):"");
+}
+function contactsCard(){
+  const list=(S.profiles[S.uid]?.contacts||contactsOf(S.uid)).map(c=>({...c}));
+  const box=h("div",{class:"stack",style:"gap:8px"});
+  const row=c=>{ const type=h("select",{"data-f":"type",style:"width:auto"},...Object.entries(CONTACT_TYPES).map(([k,t])=>h("option",{value:k,selected:c.type===k},t.label)));
+    const val=h("input",{type:"text","data-f":"value",value:c.value||"",maxlength:200,placeholder:(CONTACT_TYPES[c.type]||CONTACT_TYPES.telegram).ph});
+    type.onchange=()=>{ val.placeholder=CONTACT_TYPES[type.value].ph; };
+    const vis=h("select",{"data-f":"vis",style:"width:auto"},...Object.entries(CONTACT_VIS).map(([k,l])=>h("option",{value:k,selected:(c.vis||"all")===k},l)));
+    const r=h("div",{class:"row contact-edit"},type,h("div",{class:"grow"},val),vis,h("button",{class:"btn ghost sm danger",type:"button",onclick:()=>r.remove()},"✕"));
+    return r; };
+  list.forEach(c=>box.append(row(c)));
+  if(!list.length) box.append(row({type:"telegram",vis:"all"}));
+  const save=()=>{ const contacts=[...box.querySelectorAll(".contact-edit")].map(r=>({type:r.querySelector('[data-f="type"]').value,value:r.querySelector('[data-f="value"]').value.trim(),vis:r.querySelector('[data-f="vis"]').value})).filter(c=>c.value);
+    guard(async()=>{ const base=S.profiles[S.uid]||{name:S.apps[S.uid]?.name||displayName(S.uid),visibility:"all",hiddenFrom:[],allowedFor:[]};
+      await S.db.doc("profiles/"+S.uid).set({...base,contacts,updatedAt:Date.now()}); delete document.getElementById("contacts-card")?.dataset.dirty; toast("Контакты сохранены"); render(); }); };
+  const form=h("form",{class:"card stack",id:"contacts-card",onsubmit:e=>e.preventDefault(),oninput:()=>{form.dataset.dirty="1";}},h("div",{class:"eyebrow"},"Контакты"),
+    h("p",{class:"small muted",style:"margin:0"},"Как с вами связаться вне сайта. Для каждого контакта выберите, кто его видит: все участники, только те, с кем вы уже переписывались в личных сообщениях, или никто."),
+    box,
+    h("div",{class:"row"},h("button",{class:"btn sm",type:"button",onclick:()=>{ form.dataset.dirty="1"; box.append(row({type:"email",vis:"dm"})); }},"+ Добавить контакт"),h("div",{class:"grow"}),h("button",{class:"btn primary",type:"button",disabled:!S.canWrite,onclick:save},"Сохранить контакты")));
+  return form;
+}
 
 /* ================= справочник тегов ================= */
 function renderTagsRef(){
