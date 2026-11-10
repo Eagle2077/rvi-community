@@ -9,16 +9,16 @@
 <title>Сообщество РВИ</title>
 <meta name="claude:viewport-fit-sides" content="cover">
 <link rel="preconnect" href="https://fonts.googleapis.com">
-<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Unbounded:wght@500;700&family=Inter:wght@400;500;600&family=JetBrains+Mono:wght@500&display=swap">
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Unbounded:wght@300;400;500;700&family=Inter:wght@400;500;600&family=JetBrains+Mono:wght@500&display=swap">
 <style>
 /* Layout: sticky header (brand, global search, tabs); each tab owns its body. Chats = channel list + message pane. */
 :root{
-  /* Single dark look: slate grey ground, lime signal accent, dark grey instead of black. */
-  --bg:#222A38; --surface:#2A3344; --surface-2:#323C4F; --line:#3E4A60;
-  --ink:#EEF1F6; --muted:#A3ADBF; --accent:#D8FB4E; --accent-ink:#222A38; --accent-soft:#3B4632;
+  /* Фирменный стиль РВИ: графитовый фон в тонкую сетку, кислотный салатовый, широкий тонкий гротеск, «// РВИ». */
+  --bg:#252525; --surface:#2C2C2C; --surface-2:#343434; --line:#414141; --grid:rgba(255,255,255,.04);
+  --ink:#EDEDED; --muted:#A2A2A2; --accent:#D4FF3B; --accent-ink:#252525; --accent-soft:#3A421F;
   --admin:#F2B45A; --admin-soft:#4A3A22;
-  --yes:#5FD48F; --yes-soft:#22413A; --no:#FF7A6E; --no-soft:#4A2C30; --abst:#7D879B;
-  --bubble:#323C4F; --bubble-me:#3B4632;
+  --yes:#5FD48F; --yes-soft:#22413A; --no:#FF7A6E; --no-soft:#4A2C30; --abst:#808080;
+  --bubble:#343434; --bubble-me:#3A421F;
   --display:"Unbounded","Inter",system-ui,sans-serif;
   --body:"Inter",system-ui,-apple-system,"Segoe UI",Roboto,sans-serif;
   --mono:"JetBrains Mono",ui-monospace,Consolas,monospace;
@@ -184,12 +184,47 @@ svg text{fill:var(--muted);font-family:var(--body)}
 .step b{display:block;font-family:var(--display);font-size:13px;margin-bottom:4px}
 .code{font-family:var(--mono);font-size:12px;background:var(--bg);border:1px solid var(--line);border-radius:8px;padding:12px;white-space:pre;overflow-x:auto;max-height:340px}
 .toast{position:fixed;left:50%;bottom:calc(20px + env(safe-area-inset-bottom,0px));transform:translateX(-50%);background:var(--accent);color:var(--accent-ink);font-weight:600;padding:10px 16px;border-radius:8px;font-size:14px;z-index:20;max-width:calc(100% - 32px)}
+
+/* ===== Фирменный слой РВИ ===== */
+:root{--r:4px}
+body{background-color:var(--bg);background-image:linear-gradient(var(--grid) 1px,transparent 1px),linear-gradient(90deg,var(--grid) 1px,transparent 1px);background-size:56px 56px;background-attachment:fixed}
+h1,h2{font-weight:300;text-transform:uppercase;letter-spacing:.01em}
+h3{font-weight:500}
+.top{background:var(--bg);border-bottom:2px solid var(--accent)}
+body::before{background:var(--bg)}
+.mark{width:auto;height:auto;border:0;border-radius:0;background:none;color:var(--accent);font-family:var(--mono);font-size:18px;font-weight:500;letter-spacing:.04em;white-space:nowrap}
+.brand h1{font-size:20px;font-weight:300}
+.brand small{font-family:var(--mono);font-size:11px;letter-spacing:.02em}
+.sec-title{display:flex;align-items:center;gap:14px;font-size:26px}
+.sec-title::before{content:"✱";color:var(--accent);font-size:20px;font-weight:700;flex:none}
+.sec-title::after{content:"";height:2px;width:56px;background:var(--accent);flex:none;order:-1;display:none}
+.gate h2{font-size:30px}
+.eyebrow{color:var(--accent);font-family:var(--mono);letter-spacing:.06em}
+.eyebrow::before{content:"// "}
+.search input{border-radius:var(--r);background:var(--surface)}
+.btn,.kind,input[type=text],input[type=number],textarea,select{border-radius:var(--r)}
+.btn.primary{text-transform:uppercase;letter-spacing:.04em;font-size:13px}
+.chip,.count{border-radius:2px}
+.tab{text-transform:uppercase;font-size:12px;letter-spacing:.06em}
+.tab[aria-selected="true"]{color:var(--accent)}
+.card{border-radius:var(--r)}
+.card.flat{background:var(--surface-2)}
+.chat,.code{border-radius:var(--r)}
+.bubble,.msg.me .bubble{border-radius:4px}
+.ch[aria-current="true"]{background:var(--accent);}
+.ch[aria-current="true"] b,.ch[aria-current="true"] .ch-desc{color:var(--accent-ink)}
+.kpi b,.stat b{font-weight:300;font-size:30px}
+.notice{border-left:3px solid var(--accent);border-radius:var(--r)}
+.notice.warn{border-left-color:var(--admin)}
+.pixel{position:fixed;right:0;bottom:0;width:120px;height:120px;pointer-events:none;opacity:.9;z-index:0}
+.page{position:relative;z-index:1}
+@media (max-width:760px){.pixel{display:none}}
 </style>
 
 <header class="top">
   <div class="wrap">
     <div class="topbar">
-      <div class="brand"><div class="mark">РВИ</div><div><h1>Сообщество РВИ</h1><small>Организация развития видеоигровой индустрии</small></div></div>
+      <div class="brand"><div class="mark">// РВИ</div><div><h1>Сообщество РВИ</h1><small>Организация развития видеоигровой индустрии</small></div></div>
       <div class="search" id="search-box" hidden><svg viewBox="0 0 24 24"><circle cx="11" cy="11" r="7"/><path d="M20 20l-4-4"/></svg><input type="text" id="q" placeholder="Поиск по людям, чатам, блогам и инициативам. Теги: #геймдизайн" autocomplete="off"></div>
       <div class="who" id="who"></div>
     </div>
@@ -198,6 +233,7 @@ svg text{fill:var(--muted);font-family:var(--body)}
 </header>
 <main class="wrap page" id="main"><div class="card empty"><h3>Загружаем сообщество…</h3><p>Чаты, блоги, профили участников и инициативы появятся через секунду.</p></div></main>
 <div class="toast" id="toast" hidden></div>
+<svg class="pixel" viewBox="0 0 12 12" aria-hidden="true" shape-rendering="crispEdges"><path fill="#D4FF3B" d="M12 2h-1v1h-1v1H9v1H8v1H7v1H6v1H5v1H4v1H3v1H2v1H12z"/><path fill="#252525" d="M12 5h-1v1h-1v1H9v1H8v1H7v1H6v2h6z"/></svg>
 
 <!-- ===== Локальный демо-режим: включается, только если страница открыта вне claude.ai ===== -->
 <style>
