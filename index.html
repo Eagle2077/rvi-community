@@ -88,6 +88,10 @@ textarea{resize:vertical;min-height:84px}
 button.chip:hover{border-color:var(--accent);color:var(--ink)}
 .chip[aria-pressed="true"]{background:var(--accent);color:var(--accent-ink);border-color:var(--accent)}
 .chip.tag{background:transparent;color:var(--accent);border-color:var(--accent-soft)}
+.chip.tag[data-facet="tool"]{font-family:var(--mono);color:#9AD8FF;border-color:#2F4A5C}
+.chip.tag[data-facet="platform"]{color:#C9B6FF;border-color:#433A5E}
+.chip.tag[data-facet="topic"]{color:var(--admin);border-color:var(--admin-soft)}
+.facet-dot{display:inline-block;width:8px;height:8px;border-radius:2px;margin-right:6px}
 .chip.admin{background:var(--admin-soft);color:var(--admin);border-color:transparent}
 .chip.law{background:var(--accent-soft);color:var(--accent);border-color:transparent}
 .chip.yes{background:var(--yes-soft);color:var(--yes);border-color:transparent}
@@ -185,6 +189,7 @@ svg text{fill:var(--muted);font-family:var(--body)}
 .code{font-family:var(--mono);font-size:12px;background:var(--bg);border:1px solid var(--line);border-radius:8px;padding:12px;white-space:pre;overflow-x:auto;max-height:340px}
 .toast{position:fixed;left:50%;bottom:calc(20px + env(safe-area-inset-bottom,0px));transform:translateX(-50%);background:var(--accent);color:var(--accent-ink);font-weight:600;padding:10px 16px;border-radius:8px;font-size:14px;z-index:20;max-width:calc(100% - 32px)}
 
+.no-tags .tags-only{display:none!important}
 /* ===== Фирменный слой РВИ ===== */
 :root{--r:4px}
 body{background-color:var(--bg);background-image:linear-gradient(var(--grid) 1px,transparent 1px),linear-gradient(90deg,var(--grid) 1px,transparent 1px);background-size:56px 56px;background-attachment:fixed}
@@ -225,7 +230,7 @@ body::before{background:var(--bg)}
   <div class="wrap">
     <div class="topbar">
       <div class="brand"><div class="mark">// РВИ</div><div><h1>Сообщество РВИ</h1><small>Организация развития видеоигровой индустрии</small></div></div>
-      <div class="search" id="search-box" hidden><svg viewBox="0 0 24 24"><circle cx="11" cy="11" r="7"/><path d="M20 20l-4-4"/></svg><input type="text" id="q" placeholder="Поиск по людям, чатам, блогам и инициативам. Теги: #геймдизайн" autocomplete="off"></div>
+      <div class="search" id="search-box" hidden><svg viewBox="0 0 24 24"><circle cx="11" cy="11" r="7"/><path d="M20 20l-4-4"/></svg><input type="text" id="q" placeholder="Поиск по людям, чатам, блогам и инициативам." autocomplete="off"></div>
       <div class="who" id="who"></div>
     </div>
     <nav class="tabs" id="tabs" role="tablist"></nav>
@@ -350,6 +355,17 @@ if(!store._v3){
   b("u_irina").vouch={u_oleg:true,u_maria:true}; b("u_oleg").vouch={u_irina:true,u_artem:true,u_denis:true}; b("u_maria").vouch={u_irina:true}; b("u_artem").vouch={u_oleg:true};
   store._v3=true; ls.set(KEY_DB,store);
 }
+// визитка «Ищу / Предлагаю» вместо списка целей
+if(!store._v4){
+  const P=store.profiles||{}; const at=now-2*D;
+  const set=(id,seek,give)=>{ if(P[id]) P[id].intro={seek,give,updatedAt:at}; };
+  set("u_irina","Спикеров для отраслевой конференции в декабре и студии для исследования рынка.","Помогу разобраться с грантами ИРИ и реестром студий, сведу с издателями.");
+  set("u_oleg","Геймдизайнера на баланс экономики в Pixel Forge, удалённо.","Разборы монетизации без лутбоксов, шаблон GDD для мобильных игр.");
+  set("u_maria","Проект на фриланс: концепт персонажей или UI для инди-игры.","Ревью портфолио начинающих художников.");
+  set("u_artem","Программиста C++ на Unreal в Север Геймз.","Посмотрю сетевой код и профилирование на UE5, отвечу на вопросы в #технологии.");
+  if(store.applications?.u_denis) Object.assign(store.applications.u_denis,{seek:"Издателя для следующей ПК-игры и совет по реестру студий.",give:"Опыт выпуска двух игр в Steam без издателя: вишлисты, маркетинг, релиз."});
+  store._v4=true; ls.set(KEY_DB,store);
+}
 const people=ls.get(KEY_P);
 const meId=ls.get(KEY_ME)||people[0].id;
 const me=people.find(p=>p.id===meId)||people[0];
@@ -425,26 +441,41 @@ const DEFAULT_CHANNELS = [
   {id:"jobs", name:"вакансии", desc:"Ищу работу, ищу людей, подряды", order:4},
   {id:"tech", name:"технологии", desc:"Движки, инструменты, пайплайны", order:5}
 ];
-/* Общая система тегов: id, подпись, ключевые основы слов для автотегирования */
+/* Общая система тегов.
+   Правила: 1 тег = 1 понятие; каждый тег ровно в одной группе; группы не пересекаются;
+   синонимы — это ключевые слова тега, а не отдельные теги; теги не вкладываются друг в друга.
+   Уровни (специалист / профессионал / эксперт) считаются только для специальностей и инструментов. */
+const FACETS = {
+  role:{label:"Специальность", q:"Что человек делает в проекте", levels:true},
+  tool:{label:"Инструмент", q:"На чём делает", levels:true},
+  platform:{label:"Платформа", q:"Для каких устройств и магазинов", levels:false},
+  topic:{label:"Тема отрасли", q:"О чём разговор, если это не профессия", levels:false}
+};
 const TAGS = [
-  {id:"gamedesign", label:"геймдизайн", kw:["геймдиз","механик","баланс","левел-диз","gdd","кор-луп","core loop","монетизац"]},
-  {id:"narrative", label:"нарратив", kw:["нарратив","сценар","сюжет","диалог"," лор "]},
-  {id:"programming", label:"программирование", kw:["программ"," код ","кода ","c++","c#","бэкенд","backend","сервер","шейдер"]},
-  {id:"unreal", label:"unreal", kw:["unreal","ue5","ue4","анрил","blueprint"]},
-  {id:"unity", label:"unity", kw:["unity","юнити"]},
-  {id:"art", label:"арт", kw:[" арт","художник","концепт","иллюстрац","3d","моделлинг","анимац"," ui","интерфейс"]},
-  {id:"sound", label:"звук", kw:["звук","музык","саунд","озвуч"]},
-  {id:"qa", label:"тестирование", kw:["тестиров"," qa"]},
-  {id:"production", label:"продюсирование", kw:["продюс","менеджмент","продакшн","дедлайн"]},
-  {id:"marketing", label:"маркетинг", kw:["маркетинг","продвижен","трафик","комьюнити"," pr ","стрим","блогер","вишлист"]},
-  {id:"publishing", label:"издательство", kw:["издател","паблиш","publish","релиз","steam","vk play","rustore"]},
-  {id:"investment", label:"инвестиции", kw:["инвест","раунд","венчур","акселерат"]},
-  {id:"support", label:"господдержка", kw:["господдерж","грант","льгот","субсид","реестр","минцифр","институт развития интернета"]},
-  {id:"law", label:"законодательство", kw:["закон","маркировк","регулир","квот","стратеги","правов","юрист","налог"]},
-  {id:"esports", label:"киберспорт", kw:["киберспорт","турнир","esport"]},
-  {id:"education", label:"образование", kw:["образован","курс","стажир","студент","вуз","обучен","преподава"]},
-  {id:"mobile", label:"мобильные", kw:["мобил","android","ios","f2p"]},
-  {id:"jobs", label:"вакансии", kw:["ваканс","ищу работу","ищем","резюме","найм","подряд","фриланс","аутсорс"]}
+  {id:"gamedesign", facet:"role", label:"геймдизайн", def:"Правила игры: механики, баланс, экономика, уровни.", kw:["геймдиз","механик","баланс","левел-диз","gdd","кор-луп","core loop","монетизац"]},
+  {id:"narrative", facet:"role", label:"нарратив", def:"Сюжет, сценарий, диалоги, мир игры.", kw:["нарратив","сценар","сюжет","диалог"," лор "]},
+  {id:"programming", facet:"role", label:"программирование", def:"Код игры, сервера и инструментов.", kw:["программ"," код ","кода ","c++","c#","бэкенд","backend","сервер","шейдер"]},
+  {id:"art", facet:"role", label:"арт", def:"2D и 3D графика: концепт, иллюстрация, моделирование.", kw:[" арт","художник","концепт","иллюстрац","3d","моделлинг"]},
+  {id:"animation", facet:"role", label:"анимация", def:"Движение персонажей и объектов.", kw:["анимац","аниматор","риггинг"]},
+  {id:"ui", facet:"role", label:"ui/ux", def:"Интерфейсы и удобство для игрока.", kw:[" ui"," ux","интерфейс"]},
+  {id:"sound", facet:"role", label:"звук", def:"Музыка, звуковые эффекты, озвучка.", kw:["звук","музык","саунд","озвуч"]},
+  {id:"qa", facet:"role", label:"тестирование", def:"Поиск ошибок и контроль качества.", kw:["тестиров"," qa"]},
+  {id:"production", facet:"role", label:"продюсирование", def:"Управление проектом: сроки, бюджет, команда.", kw:["продюс","менеджмент","продакшн","дедлайн"]},
+  {id:"marketing", facet:"role", label:"маркетинг", def:"Продвижение игры и работа с аудиторией.", kw:["маркетинг","продвижен","трафик","комьюнити"," pr ","стрим","блогер","вишлист"]},
+  {id:"publishing", facet:"role", label:"издательство", def:"Выпуск и распространение чужих или своих игр как издатель.", kw:["издател","паблиш","publish","релиз"]},
+  {id:"unreal", facet:"tool", label:"unreal", def:"Движок Unreal Engine.", kw:["unreal","ue5","ue4","анрил","blueprint"]},
+  {id:"unity", facet:"tool", label:"unity", def:"Движок Unity.", kw:["unity","юнити"]},
+  {id:"godot", facet:"tool", label:"godot", def:"Движок Godot.", kw:["godot","годо"]},
+  {id:"pc", facet:"platform", label:"пк", def:"Компьютеры и магазины для них: Steam, VK Play.", kw:[" пк"," pc ","steam","vk play"]},
+  {id:"console", facet:"platform", label:"консоли", def:"PlayStation, Xbox, Nintendo и отечественные консоли.", kw:["консол","playstation","xbox","nintendo"]},
+  {id:"mobile", facet:"platform", label:"мобильные", def:"Телефоны и планшеты, магазины RuStore, App Store, Google Play.", kw:["мобил","android","ios","f2p","rustore"]},
+  {id:"vr", facet:"platform", label:"vr", def:"Виртуальная и дополненная реальность.", kw:[" vr","виртуальн"," ar "]},
+  {id:"support", facet:"topic", label:"господдержка", def:"Гранты, льготы, реестры и институты развития.", kw:["господдерж","грант","льгот","субсид","реестр","минцифр","институт развития интернета"]},
+  {id:"law", facet:"topic", label:"законодательство", def:"Законы, регулирование, маркировка, налоги.", kw:["закон","маркировк","регулир","квот","стратеги","правов","юрист","налог"]},
+  {id:"investment", facet:"topic", label:"инвестиции", def:"Фонды, раунды, акселераторы.", kw:["инвест","раунд","венчур","акселерат"]},
+  {id:"esports", facet:"topic", label:"киберспорт", def:"Турниры, команды, лиги.", kw:["киберспорт","турнир","esport"]},
+  {id:"education", facet:"topic", label:"образование", def:"Курсы, вузы, стажировки, обучение кадров.", kw:["образован","курс","стажир","студент","вуз","обучен","преподава"]},
+  {id:"jobs", facet:"topic", label:"найм", def:"Вакансии, поиск работы, подряд и фриланс.", kw:["ваканс","ищу работу","ищем","резюме","найм","подряд","фриланс","аутсорс"]}
 ];
 const TAG = Object.fromEntries(TAGS.map(t=>[t.id,t]));
 const LEVELS = {expert:"Эксперт", pro:"Профессионал", spec:"Специалист"};
@@ -484,7 +515,10 @@ function errText(e){ const c=e&&e.code; if(c==="invalid_argument") return "Не�
 async function guard(fn){ try{ await fn(); }catch(e){ toast(errText(e)); } }
 const norm=t=>(t||"").toLowerCase().replace(/ё/g,"е");
 function autoTag(...texts){ const t=" "+norm(texts.join(" "))+" "; return TAGS.filter(g=>g.kw.some(k=>t.includes(norm(k)))).map(g=>g.id); }
-function tagChips(ids,onClick){ return h("div",{class:"tags"},...ids.map(id=>h("button",{class:"chip tag",type:"button",onclick:()=>onClick?onClick(id):openTag(id)},"#"+TAG[id].label))); }
+const tagTitle=id=>FACETS[TAG[id].facet].label+": "+TAG[id].def;
+/* Теги и уровни скрыты на сайте, пока словарь не утверждён (решение обсуждения от 10.11). Включить: TAGS_ON = true */
+const TAGS_ON = false;
+function tagChips(ids,onClick){ if(!TAGS_ON) return ""; return h("div",{class:"tags"},...ids.map(id=>h("button",{class:"chip tag","data-facet":TAG[id].facet,title:tagTitle(id),type:"button",onclick:()=>onClick?onClick(id):openTag(id)},"#"+TAG[id].label))); }
 function openTag(id){ S.q="#"+TAG[id].label; document.getElementById("q").value=S.q; render(); }
 function highlight(text,terms){
   if(!terms.length) return [text];
@@ -520,16 +554,34 @@ function canSee(ownerId){
   if(v==="only") return (p.allowedFor||[]).includes(S.uid);
   return true;
 }
-function yearsIn(p,tagId){ let y=0; for(const e of p.experience||[]){ const tags=autoTag(e.role,e.company,e.description); if(tags.includes(tagId)) y+=Math.max(0,(e.to||new Date().getFullYear())-(e.from||new Date().getFullYear())); } return y; }
-function endorsements(ownerId,tagId){ let n=0; for(const m of M.members){ if(m!==ownerId && S.ballots[m]?.endorse?.[ownerId]?.[tagId]) n++; } return n; }
+/* Уровни считает сайт автоматически, никто их не назначает:
+   стаж — сумма лет по местам работы, где роль или описание относятся к тегу (заявляет сам человек);
+   подтверждения — сколько других участников нажали «Подтвердить» на этом направлении.
+   специалист: направление есть в профиле; профессионал: 3+ года и 1+ подтверждение; эксперт: 7+ лет и 3+ подтверждения. */
+const LEVEL_RULE={pro:{years:3,endorse:1},expert:{years:7,endorse:3}};
+function expEntries(p,tagId){ return (p.experience||[]).filter(e=>autoTag(e.role,e.company,e.description).includes(tagId)); }
+function yearsIn(p,tagId){ return expEntries(p,tagId).reduce((y,e)=>y+Math.max(0,(e.to||new Date().getFullYear())-(e.from||new Date().getFullYear())),0); }
+function endorsersOf(ownerId,tagId){ return [...M.members].filter(m=>m!==ownerId&&S.ballots[m]?.endorse?.[ownerId]?.[tagId]); }
+function endorsements(ownerId,tagId){ return endorsersOf(ownerId,tagId).length; }
+function levelWhy(ownerId,e){
+  const p=S.profiles[ownerId]||{}; const ents=expEntries(p,e.id), by=endorsersOf(ownerId,e.id);
+  const next=e.level==="spec"?["профессионала",LEVEL_RULE.pro]:e.level==="pro"?["эксперта",LEVEL_RULE.expert]:null;
+  const need=next?[next[1].years>e.years?"ещё "+plural(next[1].years-e.years,"год","года","лет")+" опыта":"",next[1].endorse>e.endorse?"ещё "+plural(next[1].endorse-e.endorse,"подтверждение","подтверждения","подтверждений"):""].filter(Boolean).join(" и "):"";
+  return LEVELS[e.level]+" · #"+TAG[e.id].label+"\n"+
+    "Стаж: "+plural(e.years,"год","года","лет")+(ents.length?" — "+ents.map(x=>x.role+", "+x.company+" ("+(x.from||"?")+"–"+(x.to||"н.в.")+")").join("; "):" — нет мест работы по этому направлению")+"\n"+
+    "Подтвердили: "+(by.length?by.map(displayName).join(", "):"пока никто")+"\n"+
+    (need?"До "+next[0]+": "+need+"\n":"")+
+    "Считается автоматически: стаж указывает сам человек, подтверждают другие участники.";
+}
+function levelChip(ownerId,e,withLabel){ return h("span",{class:"chip "+(e.level==="expert"?"lvl-expert":e.level==="pro"?"lvl-pro":""),title:levelWhy(ownerId,e),style:"cursor:help"},LEVELS[e.level]+(withLabel?" · "+TAG[e.id].label:"")); }
 function expertise(ownerId){
-  const p=S.profiles[ownerId]; if(!p) return [];
+  const p=S.profiles[ownerId]; if(!p||!TAGS_ON) return [];
   const ids=new Set([...(p.skills||[]),...autoTag(p.headline,p.about,...(p.experience||[]).map(e=>e.role+" "+e.description))]);
-  return [...ids].filter(id=>TAG[id]).map(id=>{ const y=yearsIn(p,id), e=endorsements(ownerId,id);
-    const level= y>=7&&e>=2 ? "expert" : y>=3 ? "pro" : "spec"; return {id,years:y,endorse:e,level}; })
+  return [...ids].filter(id=>TAG[id]&&FACETS[TAG[id].facet].levels).map(id=>{ const y=yearsIn(p,id), e=endorsements(ownerId,id);
+    const level= y>=LEVEL_RULE.expert.years&&e>=LEVEL_RULE.expert.endorse ? "expert" : y>=LEVEL_RULE.pro.years&&e>=LEVEL_RULE.pro.endorse ? "pro" : "spec"; return {id,years:y,endorse:e,level}; })
     .sort((a,b)=>({expert:0,pro:1,spec:2}[a.level]-{expert:0,pro:1,spec:2}[b.level])||b.years-a.years);
 }
-function memberTags(id){ const fromProfile=expertise(id).map(e=>e.id); const fromMsgs={}; for(const m of S.messages) if(m.author===id) for(const t of autoTag(m.text)) fromMsgs[t]=(fromMsgs[t]||0)+1;
+function memberTags(id){ if(!TAGS_ON) return []; const fromProfile=[...expertise(id).map(e=>e.id),...(S.profiles[id]?.skills||[]).filter(t=>TAG[t])]; const fromMsgs={}; for(const m of S.messages) if(m.author===id) for(const t of autoTag(m.text)) fromMsgs[t]=(fromMsgs[t]||0)+1;
   return [...new Set([...fromProfile,...Object.entries(fromMsgs).sort((a,b)=>b[1]-a[1]).slice(0,3).map(x=>x[0])])]; }
 
 /* ================= идентификация участников ================= */
@@ -604,29 +656,31 @@ function identityCard(){
     h("div",{class:"small muted"},"Знают лично: "+(t.vouch?vouchersOf(S.uid).map(displayName).join(", "):"пока никто. Участники нажимают «Знаю лично» на вашем профиле или анкете.")));
 }
 
-/* ================= визитка: кто, зачем здесь, что предлагает ================= */
-const GOALS = {job:"Ищу работу", hire:"Ищу людей в команду", invest:"Ищу инвестиции или издателя", share:"Делюсь опытом", law:"Влиять на законы и господдержку", network:"Знакомства в индустрии", learn:"Учиться"};
+/* ================= визитка: кто, ищу, предлагаю ================= */
+/* Вместо выбора целей из списка — две короткие строки, как закреплённый пост. Обновляются когда угодно, видна дата. */
 function introOf(id){ const p=S.profiles[id]||{}, a=S.apps[id]||{}; const i=p.intro||{};
   return {who:[p.headline||a.role,p.company||a.org,a.years?plural(a.years,"год","года","лет")+" в индустрии":""].filter(Boolean).join(" · "),
-    about:p.about||a.about||"", goals:(i.goals&&i.goals.length?i.goals:a.goals)||[], give:i.give||a.give||""}; }
+    about:p.about||a.about||"", seek:i.seek||a.seek||"", give:i.give||a.give||"", at:i.updatedAt||a.updatedAt||a.createdAt||0}; }
 function introBlock(id){
   const i=introOf(id); const off=(S.profiles[id]?.offer?.formats||[]).map(f=>FORMATS[f]);
-  const row=(label,...val)=>h("div",{style:"display:grid;grid-template-columns:150px minmax(0,1fr);gap:10px"},h("div",{class:"eyebrow",style:"padding-top:2px"},label),h("div",{class:"body-text"},...val));
+  const row=(label,...val)=>h("div",{style:"display:grid;grid-template-columns:120px minmax(0,1fr);gap:10px"},h("div",{class:"eyebrow",style:"padding-top:2px"},label),h("div",{class:"body-text"},...val));
+  const none=h("span",{class:"muted"},"не указано");
   return h("div",{class:"stack",style:"gap:8px"},
     i.who||i.about?row("Кто",i.who?h("b",{},i.who):"",i.who&&i.about?"\n":"",i.about):"",
-    i.goals.length?row("Зачем здесь",h("div",{class:"tags"},...i.goals.map(g=>h("span",{class:"chip law"},GOALS[g])))):row("Зачем здесь",h("span",{class:"muted"},"не указано")),
-    row("Что предлагает",i.give||h("span",{class:"muted"},"не указано"),off.length?h("div",{class:"tags",style:"margin-top:6px"},...off.map(f=>h("span",{class:"chip"},f))):""));
+    row("Ищу",i.seek||none,tagChips(autoTag(i.seek))),
+    row("Предлагаю",i.give||none,off.length?h("div",{class:"tags",style:"margin-top:6px"},...off.map(f=>h("span",{class:"chip"},f))):"",tagChips(autoTag(i.give))),
+    i.at&&(i.seek||i.give)?h("div",{class:"small muted"},"Обновлено "+ago(i.at)):"");
 }
 function introCard(){
-  const i=introOf(S.uid); const sel=new Set(i.goals);
-  const give=h("textarea",{id:"in-give",maxlength:800,style:"min-height:60px",placeholder:"Чем можете быть полезны: опыт, контакты, помощь, вакансии"},i.give);
-  const save=patch=>guard(async()=>{ const base=S.profiles[S.uid]||{name:displayName(S.uid),visibility:"all",hiddenFrom:[],allowedFor:[]};
-    await S.db.doc("profiles/"+S.uid).set({...base,intro:{...(base.intro||{}),goals:[...sel],give:give.value.trim(),...patch},updatedAt:Date.now()}); toast("Визитка сохранена"); });
-  return h("div",{class:"card stack"},h("div",{class:"eyebrow"},"Визитка: кто вы, зачем здесь, что предлагаете"),
-    h("p",{class:"small muted",style:"margin:0"},"Это первое, что видят участники на вашей карточке и в анкете."),
-    h("div",{class:"tags"},...Object.entries(GOALS).map(([k,l])=>h("button",{class:"chip","aria-pressed":String(sel.has(k)),disabled:!S.canWrite,onclick:()=>{ sel.has(k)?sel.delete(k):sel.add(k); save({goals:[...sel]}); }},l))),
-    h("label",{},"Что предлагаете сообществу",give),
-    h("div",{},h("button",{class:"btn",disabled:!S.canWrite,onclick:()=>save({give:give.value.trim()})},"Сохранить")));
+  const i=introOf(S.uid);
+  const seek=h("textarea",{id:"in-seek",maxlength:280,style:"min-height:52px",placeholder:"Сейчас ищу: геймдизайнера на баланс экономики, издателя для ПК-игры, менторство по Unreal"},i.seek);
+  const give=h("textarea",{id:"in-give",maxlength:280,style:"min-height:52px",placeholder:"Могу: рассказать, как получить грант ИРИ, сделать ревью портфолио, посмотреть сетевой код"},i.give);
+  const save=()=>guard(async()=>{ const base=S.profiles[S.uid]||{name:displayName(S.uid),visibility:"all",hiddenFrom:[],allowedFor:[]};
+    await S.db.doc("profiles/"+S.uid).set({...base,intro:{...(base.intro||{}),seek:seek.value.trim(),give:give.value.trim(),updatedAt:Date.now()},updatedAt:Date.now()}); toast("Визитка обновлена"); });
+  return h("div",{class:"card stack"},h("div",{class:"eyebrow"},"Визитка: ищу и предлагаю"),
+    h("p",{class:"small muted",style:"margin:0"},"Две строки, как закреплённый пост: что вам сейчас нужно и чем вы можете помочь. Видны первыми на карточке и в анкете, обновляйте, когда меняются планы."),
+    h("label",{},"Ищу",seek),h("label",{},"Предлагаю",give),
+    h("div",{},h("button",{class:"btn primary",disabled:!S.canWrite,onclick:save},"Обновить визитку")));
 }
 
 /* ================= writes ================= */
@@ -665,7 +719,7 @@ function view(){
   if(S.stale) out.push(h("div",{class:"notice warn",style:"margin-bottom:14px"},"Данные пока не доходят. То, что вы видите, может быть устаревшим."));
   if(!isMember()) return [...out,renderGate()];
   if(S.q.trim()) return [...out,renderSearch()];
-  const map={chats:renderChats,blogs:renderBlogs,people:renderPeople,market:renderMarket,inits:renderInits,stats:renderStats,apps:renderApps,me:renderMe};
+  const map={chats:renderChats,blogs:renderBlogs,people:renderPeople,market:renderMarket,inits:renderInits,stats:renderStats,apps:renderApps,me:renderMe,tags:renderTagsRef};
   out.push(map[S.tab]?map[S.tab]():renderChats());
   return out;
 }
@@ -680,7 +734,7 @@ function renderTabs(){
   const pending=Object.values(M.status).filter(s=>s.state==="pending").length, live=S.inits.filter(i=>i.status==="voting").length;
   const invitedMe=S.requests.filter(r=>r.status!=="closed"&&(r.invited||[]).includes(S.uid)&&!S.ballots[S.uid]?.responses?.[r.id]).length;
   const openReq=S.requests.filter(r=>r.status!=="closed").length;
-  [["chats","Чаты",0],["blogs","Блоги и новости",0],["people","Люди",0],["market",invitedMe?"Эксперты и запросы · вас пригласили":"Эксперты и запросы",invitedMe||openReq],["inits","Инициативы",live],["stats","Аналитика",0],["apps","Заявки",pending],["me","Мой профиль",0]].forEach(([k,l,n])=>
+  [["chats","Чаты",0],["blogs","Блоги и новости",0],["people","Люди",0],["market",invitedMe?"Эксперты и запросы · вас пригласили":"Эксперты и запросы",invitedMe||openReq],["inits","Инициативы",live],["stats","Аналитика",0],["apps","Заявки",pending],["me","Мой профиль",0],["tags","Словарь тегов",0]].forEach(([k,l,n])=>
     t.append(h("button",{class:"tab",role:"tab","aria-selected":String(S.tab===k&&!S.q),onclick:()=>{S.tab=k;S.q="";S.person=null;S.openBlog=null;document.getElementById("q").value="";try{localStorage.setItem("rvi-tab",k)}catch(e){};render();}},l,n?h("span",{class:"count"},n):"")));
 }
 
@@ -709,12 +763,11 @@ function renderGate(){
       h("label",{},"Лет в индустрии",h("input",{type:"number",id:"app-years",min:0,max:60,value:v.years??""}))),
     h("label",{},"О себе и своих проектах",h("textarea",{id:"app-about",required:true,maxlength:1500,placeholder:"Над какими играми работали, что умеете, чем полезны сообществу"},v.about||"")),
     h("label",{},"Портфолио, Steam-страница или сайт студии",h("input",{type:"text",id:"app-links",required:true,maxlength:300,value:v.links||"",placeholder:"https://…"})),
-    h("div",{},h("div",{class:"small",style:"font-weight:600;margin-bottom:6px"},"Зачем вы здесь"),
-      h("div",{class:"tags",id:"app-goals"},...Object.entries(GOALS).map(([k,l])=>h("button",{type:"button",class:"chip","data-goal":k,"aria-pressed":String((v.goals||[]).includes(k)),onclick:e=>{const b=e.currentTarget;b.setAttribute("aria-pressed",String(b.getAttribute("aria-pressed")!=="true"));}},l)))),
-    h("label",{},"Чем можете быть полезны сообществу",h("textarea",{id:"app-give",maxlength:800,style:"min-height:60px",placeholder:"Например: расскажу, как мы получили грант ИРИ; помогу с портфолио художникам; ищу людей в команду"},v.give||"")),
+    h("label",{},"Что ищете в сообществе",h("textarea",{id:"app-seek",maxlength:280,style:"min-height:52px",placeholder:"Например: издателя для ПК-игры, людей в команду, разобраться с реестром студий"},v.seek||"")),
+    h("label",{},"Что можете предложить",h("textarea",{id:"app-give",maxlength:280,style:"min-height:52px",placeholder:"Например: расскажу, как мы получили грант ИРИ; ревью портфолио художникам"},v.give||"")),
     h("div",{class:"row"},h("button",{class:"btn primary",type:"submit",disabled:!S.canWrite},mine?"Сохранить анкету":"Отправить на голосование")));
   f.addEventListener("submit",e=>{e.preventDefault(); const q=id=>f.querySelector(id).value.trim();
-    const data={name:q("#app-name"),org:q("#app-org"),role:q("#app-role"),years:parseInt(q("#app-years"),10)||0,about:q("#app-about"),links:q("#app-links"),goals:[...f.querySelectorAll("#app-goals [aria-pressed=true]")].map(b=>b.dataset.goal),give:q("#app-give"),createdAt:mine?.createdAt||Date.now(),updatedAt:Date.now()};
+    const data={name:q("#app-name"),org:q("#app-org"),role:q("#app-role"),years:parseInt(q("#app-years"),10)||0,about:q("#app-about"),links:q("#app-links"),seek:q("#app-seek"),give:q("#app-give"),createdAt:mine?.createdAt||Date.now(),updatedAt:Date.now()};
     if(!data.name||!data.about||!data.links||!data.org) return toast("Заполните имя, компанию, рассказ о себе и ссылку на работы.");
     guard(async()=>{ await S.db.doc("applications/"+S.uid).set(data); toast(mine?"Анкета обновлена":"Анкета отправлена"); });});
   box.append(f, identityCard()); return box;
@@ -834,7 +887,7 @@ function renderPeople(){
   const shown=ids.filter(id=>!S.peopleTag||(canSee(id)&&memberTags(id).includes(S.peopleTag)));
   return h("div",{class:"stack"},
     h("div",{class:"row"},h("h2",{class:"sec-title grow"},"Участники индустрии"),h("span",{class:"small muted"},plural(ids.length,"участник","участника","участников"))),
-    h("div",{class:"tags"},h("button",{class:"chip","aria-pressed":String(!S.peopleTag),onclick:()=>{S.peopleTag="";render();}},"Все"),
+    h("div",{class:"tags tags-only"},h("button",{class:"chip","aria-pressed":String(!S.peopleTag),onclick:()=>{S.peopleTag="";render();}},"Все"),
       ...Object.entries(tagCounts).sort((a,b)=>b[1]-a[1]).map(([t,n])=>h("button",{class:"chip","aria-pressed":String(S.peopleTag===t),onclick:()=>{S.peopleTag=t;render();}},"#"+TAG[t].label+" "+n))),
     h("div",{class:"people"},...shown.map(personCard)));
 }
@@ -842,8 +895,9 @@ function personCard(id){
   const visible=canSee(id), p=S.profiles[id]||{}, ex=visible?expertise(id).slice(0,3):[];
   return h("button",{class:"card person",onclick:()=>openPerson(id)},
     h("div",{class:"post-head"},avatarEl(id),h("div",{class:"grow"},h("div",{class:"name row",style:"gap:6px"},displayName(id),trustBadge(id)),h("div",{class:"small muted"},visible?(p.headline||S.apps[id]?.role||"Участник"):"Профиль скрыт")),S.staff[id]?h("span",{class:"chip admin"},"Админ"):""),
-    visible&&introOf(id).goals.length?h("div",{class:"small"},h("span",{class:"muted"},"Здесь, чтобы: "),introOf(id).goals.slice(0,2).map(g=>GOALS[g].toLowerCase()).join(", ")):"",
-    visible&&ex.length?h("div",{class:"tags"},...ex.map(e=>h("span",{class:"chip "+(e.level==="expert"?"lvl-expert":e.level==="pro"?"lvl-pro":"")},LEVELS[e.level]+" · "+TAG[e.id].label))):"",
+    visible&&introOf(id).seek?h("div",{class:"small"},h("span",{class:"muted"},"Ищу: "),introOf(id).seek.length>90?introOf(id).seek.slice(0,90)+"…":introOf(id).seek):"",
+    visible&&introOf(id).give?h("div",{class:"small"},h("span",{class:"muted"},"Предлагаю: "),introOf(id).give.length>90?introOf(id).give.slice(0,90)+"…":introOf(id).give):"",
+    visible&&ex.length?h("div",{class:"tags"},...ex.map(e=>levelChip(id,e,true))):"",
     visible?h("div",{class:"tags"},...memberTags(id).filter(t=>!ex.find(e=>e.id===t)).slice(0,4).map(t=>h("span",{class:"chip tag"},"#"+TAG[t].label))):h("div",{class:"small muted"},"Участник ограничил, кто видит его профиль."));
 }
 function personFull(id){
@@ -861,9 +915,9 @@ function personFull(id){
       (p.socials?.linkedin||p.socials?.artstation)?h("div",{class:"row"},
         p.socials.linkedin?h("a",{class:"btn sm",href:p.socials.linkedin,target:"_blank",rel:"noopener nofollow"},"LinkedIn"):"",
         p.socials.artstation?h("a",{class:"btn sm",href:p.socials.artstation,target:"_blank",rel:"noopener nofollow"},"ArtStation"):""):""),
-    h("div",{class:"card stack"},h("div",{class:"eyebrow"},"Экспертиза"),
+    h("div",{class:"card stack tags-only"},h("div",{class:"eyebrow"},"Экспертиза"),
       ex.length?h("div",{class:"stack"},...ex.map(e=>h("div",{class:"row"},
-        h("span",{class:"chip "+(e.level==="expert"?"lvl-expert":e.level==="pro"?"lvl-pro":"")},LEVELS[e.level]),
+        levelChip(id,e),
         h("b",{class:"grow"},"#"+TAG[e.id].label),
         h("span",{class:"small muted"},plural(e.years,"год","года","лет")+" опыта · "+plural(e.endorse,"подтверждение","подтверждения","подтверждений")),
         id!==S.uid?h("button",{class:"btn sm"+(myEnd[e.id]?" sel-yes":""),disabled:!S.canWrite,onclick:()=>writeBallot(b=>{ b.endorse[id]=b.endorse[id]||{}; if(b.endorse[id][e.id]) delete b.endorse[id][e.id]; else b.endorse[id][e.id]=true; })},myEnd[e.id]?"Подтверждено":"Подтвердить"):""))):h("p",{class:"muted small",style:"margin:0"},"Участник пока не заполнил опыт.")),
@@ -875,10 +929,10 @@ function personFull(id){
       h("div",{class:"tags"},...memberTags(id).map(t=>h("span",{class:"chip tag"},"#"+TAG[t].label)))),
       levelsCard()));
 }
-function levelsCard(){ return h("div",{class:"card flat stack small"},h("div",{class:"eyebrow"},"Кто есть кто"),
+function levelsCard(){ return h("div",{class:"card flat stack small tags-only"},h("div",{class:"eyebrow"},"Кто есть кто"),
   h("div",{},h("b",{},"Специалист")," — указал направление в профиле."),
-  h("div",{},h("b",{},"Профессионал")," — 3+ года опыта по направлению."),
-  h("div",{},h("b",{},"Эксперт")," — 7+ лет опыта и 2+ подтверждения от других участников.")); }
+  h("div",{},h("b",{},"Профессионал")," — 3+ года опыта по направлению и 1+ подтверждение от участников."),
+  h("div",{},h("b",{},"Эксперт")," — 7+ лет опыта и 3+ подтверждения. Уровни считает сайт: стаж берётся из опыта в профиле, подтверждают другие участники. Наведите на уровень, чтобы увидеть расчёт.")); }
 
 /* ================= my profile, privacy, export ================= */
 function renderMe(){
@@ -890,8 +944,10 @@ function renderMe(){
     h("div",{class:"grid2"},h("label",{},"Компания",h("input",{type:"text",id:"pf-company",value:p.company||app.org||""})),h("label",{},"Город",h("input",{type:"text",id:"pf-city",value:p.city||""}))),
     h("label",{},"О себе",h("textarea",{id:"pf-about"},p.about||app.about||"")),
     h("label",{},"Ссылки",h("input",{type:"text",id:"pf-links",value:p.links||app.links||""})),
-    h("div",{},h("div",{class:"small",style:"font-weight:600;margin-bottom:6px"},"Направления (влияют на теги и уровень)"),
-      h("div",{class:"tags",id:"pf-skills"},...TAGS.map(t=>h("button",{type:"button",class:"chip","aria-pressed":String((p.skills||[]).includes(t.id)),"data-id":t.id,onclick:e=>{const b=e.currentTarget;b.setAttribute("aria-pressed",String(b.getAttribute("aria-pressed")!=="true"));}},t.label)))));
+    h("div",{class:"tags-only"},h("div",{class:"small",style:"font-weight:600;margin-bottom:6px"},"Направления (влияют на теги и уровень)"),
+      h("div",{class:"stack",id:"pf-skills",style:"gap:8px"},...Object.entries(FACETS).map(([fk,fc])=>h("div",{class:"row",style:"align-items:flex-start;flex-wrap:nowrap"},
+        h("div",{class:"small muted",style:"width:120px;flex:none;padding-top:3px"},fc.label),
+        h("div",{class:"tags"},...TAGS.filter(t=>t.facet===fk).map(t=>h("button",{type:"button",class:"chip",title:t.def,"aria-pressed":String((p.skills||[]).includes(t.id)),"data-id":t.id,onclick:e=>{const b=e.currentTarget;b.setAttribute("aria-pressed",String(b.getAttribute("aria-pressed")!=="true"));}},t.label))))))));
   const expBox=h("div",{class:"stack",id:"exp-box"});
   const expRow=(e,i)=>h("div",{class:"card flat stack","data-i":i},
     h("div",{class:"grid2"},h("label",{},"Роль",h("input",{type:"text",id:"ex-role-"+i,value:e.role||""})),h("label",{},"Компания",h("input",{type:"text",id:"ex-co-"+i,value:e.company||""}))),
@@ -911,7 +967,7 @@ function renderMe(){
   left.append(introCard(), identityCard(), f);
   left.append(offerCard(p), importCard(p), privacyCard(p), exportCard(p));
   const ex=expertise(S.uid);
-  const rail=h("div",{class:"col"},h("div",{class:"card stack"},h("div",{class:"eyebrow"},"Ваши уровни"),
+  const rail=h("div",{class:"col"},h("div",{class:"card stack tags-only"},h("div",{class:"eyebrow"},"Ваши уровни"),
     ex.length?ex.map(e=>h("div",{class:"row small"},h("span",{class:"chip "+(e.level==="expert"?"lvl-expert":e.level==="pro"?"lvl-pro":"")},LEVELS[e.level]),h("span",{},"#"+TAG[e.id].label))):h("p",{class:"small muted",style:"margin:0"},"Заполните опыт и направления, чтобы получить уровни.")),levelsCard(),
     h("button",{class:"btn",onclick:()=>openPerson(S.uid)},"Как меня видят другие"));
   return h("div",{class:"layout"},left,rail);
@@ -1109,7 +1165,7 @@ function requestCard(r){
   return card;
 }
 function levelChips(id,tags){ const ex=expertise(id).filter(e=>!tags.length||tags.includes(e.id)).slice(0,2);
-  return h("div",{class:"tags"},...ex.map(e=>h("span",{class:"chip "+(e.level==="expert"?"lvl-expert":e.level==="pro"?"lvl-pro":"")},LEVELS[e.level]+" · "+TAG[e.id].label))); }
+  return h("div",{class:"tags"},...ex.map(e=>levelChip(id,e,true))); }
 function expertsView(){
   const ids=[...M.members].filter(id=>isOffering(id)&&(!S.marketFormat||offerOf(id).formats.includes(S.marketFormat)));
   const myOpen=S.requests.filter(r=>r.author===S.uid&&r.status!=="closed");
@@ -1144,6 +1200,31 @@ function offerCard(p){
     h("div",{class:"row"},h("select",{id:"of-terms",style:"width:auto",onchange:e=>save({terms:e.target.value})},...Object.entries(TERMS).map(([k,l])=>h("option",{value:k,selected:o.terms===k},l))),
       h("label",{class:"row",style:"flex-direction:row;font-weight:400"},h("input",{type:"checkbox",id:"of-online",checked:o.online!==false,onchange:e=>save({online:e.target.checked})}),"Могу онлайн"),
       h("div",{class:"grow"}),h("button",{class:"btn",disabled:!S.canWrite,onclick:()=>save({topics:topics.value.trim()})},"Сохранить темы")));
+}
+
+/* ================= справочник тегов ================= */
+function renderTagsRef(){
+  const FC={role:"var(--accent)",tool:"#9AD8FF",platform:"#C9B6FF",topic:"var(--admin)"};
+  const cnt=id=>({people:[...M.members].filter(m=>canSee(m)&&memberTags(m).includes(id)).length,
+    posts:S.messages.filter(m=>autoTag(m.text).includes(id)).length+S.blogs.filter(b=>autoTag(b.title,b.text).includes(id)).length});
+  const rules=h("div",{class:"card stack small"},h("div",{class:"eyebrow"},"Правила"),
+    h("div",{},h("b",{},"Атомарность. "),"Один тег — одно понятие. «Арт» и «анимация» — разные теги, «unreal» не входит в «программирование»."),
+    h("div",{},h("b",{},"Четыре группы, не пересекаются. "),"Каждый тег ровно в одной: специальность, инструмент, платформа или тема отрасли."),
+    h("div",{},h("b",{},"Синонимы — не теги. "),"«UE5», «анрил» и «Unreal Engine» — ключевые слова одного тега #unreal."),
+    h("div",{},h("b",{},"Откуда берутся. "),"Текстам — автоматически по ключевым словам. Людям — из направлений в профиле и из того, о чём они пишут."),
+    h("div",{},h("b",{},"Уровни. "),"Специалист, профессионал, эксперт — только для специальностей и инструментов. Платформы и темы показывают интересы, без уровня."),
+    h("div",{},h("b",{},"Новый тег. "),"Добавляют администраторы, если понятие не покрывается существующими и о нём пишут регулярно."));
+  const groups=Object.entries(FACETS).map(([fk,fc])=>h("div",{class:"card stack"},
+    h("div",{class:"row"},h("h3",{class:"grow",style:"font-size:17px"},h("span",{class:"facet-dot",style:"background:"+FC[fk]}),fc.label),h("span",{class:"small muted"},fc.q+(fc.levels?" · есть уровни":" · без уровней"))),
+    h("div",{class:"tbl"},h("table",{},h("thead",{},h("tr",{},h("th",{},"Тег"),h("th",{},"Что значит"),h("th",{},"Ключевые слова"),h("th",{style:"text-align:right"},"Людей"),h("th",{style:"text-align:right"},"Публикаций"))),
+      h("tbody",{},...TAGS.filter(t=>t.facet===fk).map(t=>{ const c=cnt(t.id); return h("tr",{},
+        h("td",{},h("button",{class:"chip tag","data-facet":fk,onclick:()=>openTag(t.id)},"#"+t.label)),
+        h("td",{style:"white-space:normal;min-width:220px"},t.def),
+        h("td",{class:"muted",style:"white-space:normal;min-width:200px;font-family:var(--mono);font-size:12px"},t.kw.map(k=>k.trim()).join(", ")),
+        h("td",{class:"n"},c.people),h("td",{class:"n"},c.posts)); }))))));
+  return h("div",{class:"stack"},h("h2",{class:"sec-title"},"Словарь тегов"),!TAGS_ON?h("div",{class:"notice warn"},"Теги и уровни сейчас скрыты на сайте: договорились вернуть их, когда у каждого тега будет измеримое описание и список будет полным. Ниже — черновик словаря для обсуждения."):"",TAGS_ON?"":h("div",{class:"card stack small"},h("div",{class:"eyebrow"},"Что нужно описать для каждого тега"),h("div",{},h("b",{},"Определение"),": одно предложение, что входит в тег."),h("div",{},h("b",{},"Критерий"),": как проверить, что тег у человека верный (например, роль в выпущенном проекте, стаж, подтверждения)."),h("div",{},h("b",{},"Граница"),": чем отличается от соседних тегов и что точно не входит."),h("div",{},h("b",{},"Примеры"),": 2–3 человека или публикации, которым тег подходит, и 1–2, которым нет.")),
+    h("p",{class:"muted",style:"margin:0;max-width:80ch"},TAGS.length+" тегов в 4 группах. Нажмите на тег, чтобы найти людей и публикации с ним."),
+    h("div",{class:"layout"},h("div",{class:"col"},...groups),h("div",{class:"col"},rules)));
 }
 
 /* ================= search ================= */
@@ -1220,7 +1301,7 @@ function renderStats(){
           h("tbody",{},...chRows.map(r=>h("tr",{},h("td",{},"# "+r.c.name),h("td",{class:"n"},r.n),h("td",{class:"n"},r.n7),h("td",{class:"n"},r.a),h("td",{class:"n"},r.er),h("td",{class:"muted"},r.last?ago(r.last):"—"))))))),
         h("div",{class:"card stack"},h("div",{class:"eyebrow"},"Популярные записи блогов"),topPosts.length?topPosts.map(b=>h("div",{class:"row small"},h("span",{class:"grow"},b.title),h("span",{class:"muted"},"♥ "+likesOf(b.id)))):h("span",{class:"small muted"},"Пока нет записей."))),
       h("div",{class:"col"},
-        h("div",{class:"card stack"},h("div",{class:"eyebrow"},"Темы (автотеги)"),topTags.length?topTags.map(([t,n])=>h("div",{class:"hbar"},h("button",{class:"btn ghost",style:"padding:0;text-align:left;color:var(--ink)",onclick:()=>openTag(t)},"#"+TAG[t].label),h("div",{class:"track"},h("div",{class:"fill",style:"width:"+(n/tmax*100)+"%"})),h("span",{class:"v"},n))):h("span",{class:"small muted"},"Темы появятся с первыми сообщениями.")),
+        h("div",{class:"card stack tags-only"},h("div",{class:"eyebrow"},"Темы (автотеги)"),topTags.length?topTags.map(([t,n])=>h("div",{class:"hbar"},h("button",{class:"btn ghost",style:"padding:0;text-align:left;color:var(--ink)",onclick:()=>openTag(t)},"#"+TAG[t].label),h("div",{class:"track"},h("div",{class:"fill",style:"width:"+(n/tmax*100)+"%"})),h("span",{class:"v"},n))):h("span",{class:"small muted"},"Темы появятся с первыми сообщениями.")),
         h("div",{class:"card stack"},h("div",{class:"eyebrow"},"Самые активные за 30 дней"),topAuth.length?topAuth.map(([id,n])=>h("div",{class:"row small"},avatarEl(id,"sm"),h("span",{class:"grow"},displayName(id)),h("span",{class:"reg"},n))):h("span",{class:"small muted"},"Пока никого."))))
   );
 }
@@ -1302,7 +1383,7 @@ function renderApps(){
 /* ================= boot ================= */
 let qTimer;
 document.getElementById("q").addEventListener("input",e=>{ clearTimeout(qTimer); qTimer=setTimeout(()=>{ S.q=e.target.value; S.qType="all"; render(); },200); });
-async function boot(){
+async function boot(){ document.body.classList.toggle("no-tags",!TAGS_ON);
   try{ const t=localStorage.getItem("rvi-tab"); if(t) S.tab=t; }catch(e){}
   if(!window.claude?.use){ S.offline=true; render(); return; }
   const [db,user]=await Promise.all([window.claude.use("db"),window.claude.use("user")]);
