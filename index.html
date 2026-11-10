@@ -1,0 +1,963 @@
+<!doctype html>
+<html lang="ru">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover">
+<style>:root{padding-top:env(safe-area-inset-top);padding-bottom:env(safe-area-inset-bottom)}body{margin:0}img{max-width:100%}[hidden]{display:none!important}</style>
+</head>
+<body>
+<title>Сообщество РВИ</title>
+<meta name="claude:viewport-fit-sides" content="cover">
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Unbounded:wght@500;700&family=Inter:wght@400;500;600&family=JetBrains+Mono:wght@500&display=swap">
+<style>
+/* Layout: sticky header (brand, global search, tabs); each tab owns its body. Chats = channel list + message pane. */
+:root{
+  /* Single dark look: slate grey ground, lime signal accent, dark grey instead of black. */
+  --bg:#222A38; --surface:#2A3344; --surface-2:#323C4F; --line:#3E4A60;
+  --ink:#EEF1F6; --muted:#A3ADBF; --accent:#D8FB4E; --accent-ink:#222A38; --accent-soft:#3B4632;
+  --admin:#F2B45A; --admin-soft:#4A3A22;
+  --yes:#5FD48F; --yes-soft:#22413A; --no:#FF7A6E; --no-soft:#4A2C30; --abst:#7D879B;
+  --bubble:#323C4F; --bubble-me:#3B4632;
+  --display:"Unbounded","Inter",system-ui,sans-serif;
+  --body:"Inter",system-ui,-apple-system,"Segoe UI",Roboto,sans-serif;
+  --mono:"JetBrains Mono",ui-monospace,Consolas,monospace;
+  --r:10px; color-scheme:dark;
+}
+a{color:var(--accent)}
+*{box-sizing:border-box}
+body{background:var(--bg);color:var(--ink);font-family:var(--body);font-size:15px;line-height:1.5}
+body::before{content:"";position:fixed;inset:0 0 auto;height:env(safe-area-inset-top,0px);z-index:10;background:var(--surface)}
+button,input,textarea,select{font:inherit;color:inherit}
+button{cursor:pointer}
+:focus-visible{outline:2px solid var(--accent);outline-offset:2px}
+h1,h2,h3{font-family:var(--display);font-weight:700;text-wrap:balance;margin:0;letter-spacing:-.01em}
+mark{background:var(--accent);color:var(--accent-ink);border-radius:3px;padding:0 2px}
+
+.top{position:sticky;top:env(safe-area-inset-top,0px);z-index:5;background:var(--surface);border-bottom:1px solid var(--line)}
+.wrap{max-width:none;margin:0;padding-left:max(24px,env(safe-area-inset-left,0px));padding-right:max(24px,env(safe-area-inset-right,0px))}
+.topbar{display:flex;align-items:center;gap:12px 16px;padding-block:10px;flex-wrap:wrap}
+.brand{display:flex;align-items:center;gap:10px}
+.mark{width:42px;height:42px;border-radius:50%;background:var(--accent-ink);border:6px solid var(--accent);color:var(--accent);display:grid;place-items:center;font-family:var(--display);font-size:9px;font-weight:700;flex:none}
+.brand h1{font-size:17px}
+.brand small{display:block;color:var(--muted);font-size:12px;font-family:var(--body);font-weight:400}
+.search{flex:1 1 280px;min-width:0;position:relative}
+.search input{width:100%;border:1px solid var(--line);background:var(--bg);border-radius:999px;padding:9px 16px 9px 38px}
+.search svg{position:absolute;left:13px;top:50%;transform:translateY(-50%);width:16px;height:16px;stroke:var(--muted);fill:none;stroke-width:2}
+.who{display:flex;align-items:center;gap:8px;font-size:13px;color:var(--muted)}
+.who img{width:28px;height:28px;border-radius:50%}
+.tabs{display:flex;gap:2px;overflow-x:auto}
+.tab{border:0;background:none;padding:9px 13px;border-bottom:2px solid transparent;color:var(--muted);font-weight:600;white-space:nowrap;display:flex;gap:6px;align-items:center;font-size:14px}
+.tab[aria-selected="true"]{color:var(--ink);border-color:var(--accent)}
+.count{font-family:var(--mono);font-size:11px;background:var(--accent-soft);color:var(--accent);border-radius:999px;padding:1px 7px}
+
+.page{padding-block:20px 48px}
+.layout{display:grid;grid-template-columns:minmax(0,1.85fr) minmax(320px,1fr);gap:20px}
+@media (max-width:960px){.layout{grid-template-columns:minmax(0,1fr)}}
+.col{display:flex;flex-direction:column;gap:14px;min-width:0}
+.card{background:var(--surface);border:1px solid var(--line);border-radius:var(--r);padding:18px;min-width:0}
+.card.flat{background:var(--surface-2);border-color:transparent}
+.eyebrow{font-size:11px;letter-spacing:.08em;text-transform:uppercase;color:var(--muted);font-weight:600}
+.muted{color:var(--muted)}
+.small{font-size:13px}
+.row{display:flex;gap:10px;align-items:center;flex-wrap:wrap}
+.stack{display:flex;flex-direction:column;gap:10px}
+.grow{flex:1 1 auto;min-width:0}
+.sec-title{font-size:20px;margin-bottom:2px}
+
+.btn{border:1px solid var(--line);background:var(--surface);border-radius:8px;padding:8px 14px;font-weight:600;font-size:14px}
+.btn:hover{border-color:var(--accent)}
+.btn.primary{background:var(--accent);border-color:var(--accent);color:var(--accent-ink)}
+.btn.ghost{border-color:transparent;background:none;color:var(--muted);padding:6px 8px}
+.btn.ghost:hover{color:var(--ink)}
+.btn.danger{color:var(--no)}
+.btn.sm{padding:4px 10px;font-size:13px}
+.btn:disabled{opacity:.5;cursor:not-allowed}
+.btn.sel-yes{background:var(--yes-soft);border-color:var(--yes);color:var(--yes)}
+.btn.sel-no{background:var(--no-soft);border-color:var(--no);color:var(--no)}
+.btn.sel-abst{background:var(--surface-2);border-color:var(--abst)}
+
+label{font-size:13px;font-weight:600;display:flex;flex-direction:column;gap:5px}
+input[type=text],input[type=number],textarea,select{width:100%;border:1px solid var(--line);border-radius:8px;background:var(--bg);padding:9px 11px;font-weight:400}
+textarea{resize:vertical;min-height:84px}
+.grid2{display:grid;grid-template-columns:1fr 1fr;gap:12px}
+.grid3{display:grid;grid-template-columns:repeat(3,1fr);gap:12px}
+@media (max-width:620px){.grid2,.grid3{grid-template-columns:1fr}}
+
+.chip{display:inline-flex;align-items:center;gap:5px;font-size:12px;font-weight:600;border-radius:999px;padding:2px 9px;background:var(--surface-2);color:var(--muted);border:1px solid var(--line);white-space:nowrap}
+button.chip:hover{border-color:var(--accent);color:var(--ink)}
+.chip[aria-pressed="true"]{background:var(--accent);color:var(--accent-ink);border-color:var(--accent)}
+.chip.tag{background:transparent;color:var(--accent);border-color:var(--accent-soft)}
+.chip.admin{background:var(--admin-soft);color:var(--admin);border-color:transparent}
+.chip.law{background:var(--accent-soft);color:var(--accent);border-color:transparent}
+.chip.yes{background:var(--yes-soft);color:var(--yes);border-color:transparent}
+.chip.no{background:var(--no-soft);color:var(--no);border-color:transparent}
+.chip.live{background:var(--accent);color:var(--accent-ink);border-color:transparent}
+.chip.lvl-expert{background:var(--accent);color:var(--accent-ink);border-color:transparent}
+.chip.lvl-pro{background:var(--accent-soft);color:var(--accent);border-color:transparent}
+.tags{display:flex;gap:6px;flex-wrap:wrap}
+
+.avatar{width:36px;height:36px;border-radius:50%;flex:none;background:var(--surface-2);object-fit:cover}
+.avatar.sm{width:28px;height:28px}
+.avatar.lg{width:64px;height:64px}
+.post-head{display:flex;gap:10px;align-items:center}
+.name{font-weight:600}
+.body-text{white-space:pre-wrap;word-wrap:break-word;max-width:70ch}
+.actions{display:flex;gap:4px;flex-wrap:wrap;margin-left:-8px}
+.comments{border-top:1px solid var(--line);margin-top:10px;padding-top:10px;display:flex;flex-direction:column;gap:10px}
+.comment{display:flex;gap:8px}
+.comment p{margin:2px 0 0;white-space:pre-wrap;word-wrap:break-word}
+
+/* chats */
+.chat{display:grid;grid-template-columns:240px minmax(0,1fr);border:1px solid var(--line);border-radius:var(--r);overflow:hidden;background:var(--surface);height:calc(100dvh - 210px);min-height:440px}
+@media (max-width:760px){.chat{grid-template-columns:1fr;height:auto}.chat .chlist{flex-direction:row;overflow-x:auto;border-right:0;border-bottom:1px solid var(--line)}.chat .chlist .ch-desc,.chat .chlist .eyebrow{display:none}.msgs{max-height:60vh}}
+.chlist{display:flex;flex-direction:column;gap:2px;padding:10px;border-right:1px solid var(--line);overflow-y:auto;background:var(--surface-2)}
+.ch{border:0;background:none;text-align:left;padding:8px 10px;border-radius:8px;display:flex;flex-direction:column;gap:1px;min-width:0}
+.ch b{font-weight:600;font-size:14px;white-space:nowrap}
+.ch .ch-desc{font-size:12px;color:var(--muted);white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+.ch[aria-current="true"]{background:var(--accent-soft)}
+.ch[aria-current="true"] b{color:var(--accent)}
+.chpane{display:flex;flex-direction:column;min-width:0;min-height:0}
+.chhead{padding:12px 16px;border-bottom:1px solid var(--line);display:flex;gap:10px;align-items:center;flex-wrap:wrap}
+.msgs{flex:1 1 auto;overflow-y:auto;padding:16px;display:flex;flex-direction:column;gap:10px;min-height:0}
+.day{align-self:center;font-size:12px;color:var(--muted);background:var(--surface-2);border-radius:999px;padding:2px 10px}
+.msg{display:flex;gap:8px;align-items:flex-end;max-width:min(640px,92%)}
+.msg.me{align-self:flex-end;flex-direction:row-reverse}
+.bubble{background:var(--bubble);border-radius:14px 14px 14px 4px;padding:8px 12px;min-width:0}
+.msg.me .bubble{background:var(--bubble-me);border-radius:14px 14px 4px 14px}
+.bubble .who-line{font-size:13px;font-weight:600;color:var(--accent);display:flex;gap:6px;align-items:center;flex-wrap:wrap}
+.bubble .meta{font-size:11px;color:var(--muted);text-align:right;margin-top:2px;font-variant-numeric:tabular-nums}
+.quote{border-left:3px solid var(--accent);padding:2px 8px;margin:4px 0;font-size:13px;color:var(--muted);background:rgba(0,0,0,.12);border-radius:0 6px 6px 0}
+.msg-actions{display:flex;gap:2px;opacity:.75}
+.msg-actions button{border:0;background:none;color:var(--muted);font-size:12px;padding:2px 6px;border-radius:6px}
+.msg-actions button:hover{color:var(--ink);background:var(--surface-2)}
+.composer{border-top:1px solid var(--line);padding:10px;display:flex;flex-direction:column;gap:6px}
+.composer .row{flex-wrap:nowrap}
+.composer textarea{min-height:42px;height:42px;resize:none}
+
+/* people */
+.people{display:grid;grid-template-columns:repeat(auto-fill,minmax(260px,1fr));gap:12px}
+.person{display:flex;flex-direction:column;gap:8px;cursor:pointer;text-align:left}
+.person:hover{border-color:var(--accent)}
+.exp{border-left:2px solid var(--line);padding-left:12px;display:flex;flex-direction:column;gap:2px}
+.levels{display:grid;grid-template-columns:repeat(3,1fr);gap:8px}
+@media (max-width:620px){.levels{grid-template-columns:1fr}}
+.level{background:var(--surface-2);border-radius:8px;padding:10px 12px;font-size:13px}
+.level b{display:block;margin-bottom:2px}
+
+/* analytics */
+.kpis{display:grid;grid-template-columns:repeat(4,1fr);gap:12px}
+@media (max-width:760px){.kpis{grid-template-columns:repeat(2,1fr)}}
+.kpi b{display:block;font-family:var(--display);font-size:26px;font-variant-numeric:tabular-nums}
+.kpi span{font-size:12px;color:var(--muted)}
+.delta{font-size:12px;font-weight:600;font-family:var(--mono)}
+.delta.up{color:var(--yes)} .delta.down{color:var(--no)}
+.hbar{display:grid;grid-template-columns:130px minmax(0,1fr) 40px;gap:10px;align-items:center;font-size:13px}
+.hbar .track{height:10px;background:var(--surface-2);border-radius:5px;overflow:hidden}
+.hbar .fill{height:100%;background:var(--accent);border-radius:5px}
+.hbar .v{text-align:right;font-family:var(--mono);font-variant-numeric:tabular-nums}
+.tbl{overflow-x:auto}
+table{border-collapse:collapse;width:100%;font-size:13px}
+th,td{text-align:left;padding:8px 10px;border-bottom:1px solid var(--line);white-space:nowrap}
+th{color:var(--muted);font-weight:600;font-size:12px}
+td.n{text-align:right;font-family:var(--mono);font-variant-numeric:tabular-nums}
+svg text{fill:var(--muted);font-family:var(--body)}
+
+/* initiatives */
+.reg{font-family:var(--mono);font-size:12px;color:var(--muted)}
+.init h3{font-size:18px;margin:6px 0}
+.articles{background:var(--surface-2);border-radius:8px;padding:12px 14px;white-space:pre-wrap;font-size:14px;max-width:72ch}
+.bar{height:12px;border-radius:6px;background:var(--surface-2);display:flex;overflow:hidden}
+.bar .y{background:var(--yes)} .bar .n{background:var(--no)} .bar .a{background:var(--abst)}
+.tally-nums{display:flex;gap:14px;flex-wrap:wrap;font-size:13px;font-variant-numeric:tabular-nums}
+.dot{display:inline-block;width:8px;height:8px;border-radius:50%;margin-right:5px}
+
+.notice{border-radius:var(--r);padding:12px 14px;background:var(--accent-soft);font-size:14px}
+.notice.warn{background:var(--admin-soft)}
+.empty{text-align:center;padding:32px 18px;color:var(--muted)}
+.empty h3{font-size:16px;color:var(--ink);margin-bottom:6px}
+.gate{max-width:700px;margin:0 auto}
+.gate h2{font-size:26px}
+.steps{display:grid;grid-template-columns:repeat(3,1fr);gap:10px}
+@media (max-width:560px){.steps{grid-template-columns:1fr}}
+.step{background:var(--surface-2);border-radius:8px;padding:12px;font-size:13px}
+.step b{display:block;font-family:var(--display);font-size:13px;margin-bottom:4px}
+.code{font-family:var(--mono);font-size:12px;background:var(--bg);border:1px solid var(--line);border-radius:8px;padding:12px;white-space:pre;overflow-x:auto;max-height:340px}
+.toast{position:fixed;left:50%;bottom:calc(20px + env(safe-area-inset-bottom,0px));transform:translateX(-50%);background:var(--accent);color:var(--accent-ink);font-weight:600;padding:10px 16px;border-radius:8px;font-size:14px;z-index:20;max-width:calc(100% - 32px)}
+</style>
+
+<header class="top">
+  <div class="wrap">
+    <div class="topbar">
+      <div class="brand"><div class="mark">РВИ</div><div><h1>Сообщество РВИ</h1><small>Организация развития видеоигровой индустрии</small></div></div>
+      <div class="search" id="search-box" hidden><svg viewBox="0 0 24 24"><circle cx="11" cy="11" r="7"/><path d="M20 20l-4-4"/></svg><input type="text" id="q" placeholder="Поиск по людям, чатам, блогам и инициативам. Теги: #геймдизайн" autocomplete="off"></div>
+      <div class="who" id="who"></div>
+    </div>
+    <nav class="tabs" id="tabs" role="tablist"></nav>
+  </div>
+</header>
+<main class="wrap page" id="main"><div class="card empty"><h3>Загружаем сообщество…</h3><p>Чаты, блоги, профили участников и инициативы появятся через секунду.</p></div></main>
+<div class="toast" id="toast" hidden></div>
+
+<!-- ===== Локальный демо-режим: включается, только если страница открыта вне claude.ai ===== -->
+<style>
+.demo{background:var(--accent-soft);border-bottom:1px solid var(--line);font-size:13px}
+.demo .wrap{display:flex;gap:8px 12px;align-items:center;flex-wrap:wrap;padding-block:8px}
+.demo b{color:var(--accent);font-family:var(--display);font-size:11px;letter-spacing:.06em;text-transform:uppercase}
+.demo select{width:auto;padding:4px 8px;font-size:13px}
+.demo .btn{padding:4px 10px;font-size:13px}
+</style>
+<script>
+(() => {
+if (window.claude) return; // на claude.ai работает настоящее хранилище
+const KEY_DB="rvi-demo2-db", KEY_P="rvi-demo2-people", KEY_ME="rvi-demo2-me";
+const ls={get(k){try{return JSON.parse(localStorage.getItem(k))}catch(e){return null}},set(k,v){try{localStorage.setItem(k,JSON.stringify(v))}catch(e){}}};
+const H=3600e3, D=24*H, now=Date.now(), Y=new Date().getFullYear();
+
+function seed(){
+  const people=[
+    {id:"u_irina",name:"Ирина Ковалёва",admin:true},
+    {id:"u_oleg",name:"Олег Петров"},
+    {id:"u_maria",name:"Мария Лебедева"},
+    {id:"u_artem",name:"Артём Соколов"},
+    {id:"u_denis",name:"Денис Орлов"},
+    {id:"u_guest",name:"Новый гость"}];
+  const app=(name,org,role,years,about,daysAgo)=>({name,org,role,years,about,links:"https://example.com",createdAt:now-daysAgo*D});
+  const db={
+    staff:{u_irina:{since:now-40*D}},
+    applications:{
+      u_oleg:app("Олег Петров","Pixel Forge","Геймдизайнер",9,"Геймдизайнер мобильных F2P-проектов, отвечаю за баланс и монетизацию.",34),
+      u_maria:app("Мария Лебедева","Фриланс","Художник",4,"Концепт-арт и UI для инди-студий.",28),
+      u_artem:app("Артём Соколов","Север Геймз","Разработчик",7,"Программист на Unreal Engine 5, геймплей и сетевой код.",20),
+      u_denis:app("Денис Орлов","Чайка Интерактив","Продюсер",5,"Продюсер двух инди-игр в Steam. Хочу участвовать в обсуждении реестра студий и грантов.",0.3)},
+    profiles:{
+      u_irina:{name:"Ирина Ковалёва",headline:"Продюсер, руководитель издательского направления",company:"РВИ",city:"Москва",about:"12 лет в индустрии. Запускала проекты на ПК и мобильных, работала с грантами ИРИ.",links:"",skills:["production","publishing","support"],
+        experience:[{role:"Продюсер",company:"Крупная мобильная студия",from:Y-12,to:Y-6,description:"Продюсирование мобильных игр, бюджет и дедлайны команды из 40 человек."},{role:"Руководитель издательства",company:"Издатель",from:Y-6,to:null,description:"Издательство и релизы в Steam и VK Play, работа с господдержкой и грантами."}],visibility:"all",hiddenFrom:[],allowedFor:[]},
+      u_oleg:{name:"Олег Петров",headline:"Ведущий геймдизайнер, мобильные F2P",company:"Pixel Forge",city:"Санкт-Петербург",about:"Баланс, экономика и монетизация.",links:"",skills:["gamedesign","mobile"],
+        experience:[{role:"Геймдизайнер",company:"Mobile Studio",from:Y-9,to:Y-4,description:"Механики и баланс в мобильных F2P-играх."},{role:"Ведущий геймдизайнер",company:"Pixel Forge",from:Y-4,to:null,description:"Монетизация, кор-луп и баланс экономики."}],visibility:"all",hiddenFrom:[],allowedFor:[]},
+      u_maria:{name:"Мария Лебедева",headline:"Концепт-художник",company:"Фриланс",city:"Казань",about:"Концепт-арт персонажей и интерфейсы.",links:"",skills:["art"],
+        experience:[{role:"Концепт-художник",company:"Фриланс",from:Y-4,to:null,description:"Концепт-арт и UI для инди-проектов."}],visibility:"all",hiddenFrom:[],allowedFor:[]},
+      u_artem:{name:"Артём Соколов",headline:"Gameplay-программист, Unreal Engine",company:"Север Геймз",city:"Новосибирск",about:"Геймплей, сетевой код, оптимизация.",links:"",skills:["programming","unreal"],
+        experience:[{role:"Программист C++",company:"Север Геймз",from:Y-7,to:null,description:"Геймплей и сетевой код на Unreal Engine 5."}],visibility:"except",hiddenFrom:["u_oleg"],allowedFor:[]}},
+    ballots:{
+      u_irina:{apps:{u_oleg:"for",u_maria:"for",u_artem:"for",u_denis:"for"},votes:{i_law:"for",i_idea:"for"},likes:{m3:true,b1:true},endorse:{u_oleg:{gamedesign:true},u_artem:{programming:true}}},
+      u_oleg:{apps:{u_maria:"for",u_artem:"for"},votes:{i_law:"against",i_idea:"for"},likes:{b1:true,m1:true},endorse:{u_irina:{production:true,publishing:true}}},
+      u_maria:{apps:{u_artem:"for"},votes:{i_idea:"for"},likes:{b2:true,m5:true},endorse:{u_oleg:{gamedesign:true},u_irina:{production:true}}},
+      u_artem:{apps:{},votes:{},likes:{b1:true},endorse:{}}},
+    messages:{}, blogs:{}, comments:{},
+    initiatives:{
+      i_law:{kind:"law",title:"О квоте отечественных игр в киберспортивных турнирах",summary:"Турниры с господдержкой включают отечественные дисциплины. Доля растёт постепенно.",body:"Статья 1. Турниры, получающие государственное финансирование, включают не менее 30% дисциплин по играм отечественной разработки.\nСтатья 2. Требование вступает в силу с 1 января 2027 года.",threshold:0.667,quorum:3,author:"u_irina",createdAt:now-2*D,deadline:now+5*D,status:"voting"},
+      i_idea:{kind:"idea",title:"Открытый реестр видеоигровых студий",summary:"Публичный список студий с контактами, чтобы издателям и инвесторам было проще находить команды.",body:"",threshold:0.5,quorum:2,author:"u_irina",createdAt:now-12*D,deadline:now-5*D,status:"accepted",closedAt:now-5*D,final:{y:3,n:0,a:0}}}
+  };
+  const msgs=[
+    ["general","u_irina",13.2,"Добро пожаловать в сообщество! Представьтесь: кто вы и над чем работаете."],
+    ["general","u_oleg",13.1,"Олег, геймдизайнер, делаю мобильные F2P. Отвечаю за баланс и монетизацию."],
+    ["general","u_maria",12.8,"Мария, концепт-художник на фрилансе. Рисую персонажей и интерфейсы."],
+    ["support","u_irina",11.5,"Напоминаю: приём заявок на гранты ИРИ открыт до конца месяца. Кто подаётся — пишите, поделюсь опытом."],
+    ["support","u_oleg",10.9,"Подаёмся впервые. Сколько времени обычно уходит на заявку?"],
+    ["support","u_irina",10.8,"Около двух недель, если бюджет проекта и дедлайны уже расписаны."],
+    ["gamedesign","u_oleg",9.6,"Кто делал монетизацию без лутбоксов? Ищу кейсы для мобильной игры."],
+    ["gamedesign","u_maria",9.4,"У знакомых сработал боевой пропуск с косметикой, баланс не ломается."],
+    ["tech","u_artem",8.7,"Переехали на Unreal Engine 5.4, сетевой код стал заметно стабильнее."],
+    ["tech","u_oleg",8.1,"Артём, а шейдеры сильно пришлось переписывать?"],
+    ["tech","u_artem",8.0,"Почти нет, только пару пост-эффектов."],
+    ["jobs","u_maria",6.5,"Ищу проект на фриланс: концепт-арт персонажей, UI. Портфолио в профиле."],
+    ["jobs","u_artem",5.2,"Север Геймз ищет программиста C++ на Unreal, удалённо."],
+    ["general","u_irina",4.3,"Опубликовали исследование «Гейминг в России 2026», ссылка в новостях."],
+    ["support","u_artem",3.1,"Кто-нибудь вносил студию в реестр видеоигровых студий? Что спрашивают?"],
+    ["support","u_irina",3.0,"Базовые документы студии и список проектов. Займёт пару дней."],
+    ["gamedesign","u_oleg",2.2,"Обновил GDD-шаблон для мобильных игр, могу поделиться."],
+    ["jobs","u_oleg",1.4,"Pixel Forge ищет геймдизайнера на баланс экономики."],
+    ["general","u_maria",0.6,"Кто едет на отраслевую конференцию в декабре?"],
+    ["tech","u_artem",0.2,"Делюсь пайплайном сборки под Steam и RuStore, если кому-то нужно."]];
+  msgs.forEach(([channel,author,d,text],i)=>db.messages["m"+(i+1)]={channel,author,text,replyTo:null,createdAt:now-d*D});
+  db.messages.m6.replyTo="m5"; db.messages.m11.replyTo="m10";
+  db.blogs={
+    b1:{author:"u_irina",kind:"news",title:"Вышло исследование «Гейминг в России 2026»",text:"РВИ опубликовала ежегодное исследование рынка: объём, жанры, издатели и господдержка. Главное — рост доли отечественных релизов в Steam и VK Play.",createdAt:now-4.2*D},
+    b2:{author:"u_oleg",kind:"blog",title:"Как мы переделали монетизацию без лутбоксов",text:"Полгода назад мы убрали случайные награды из мобильной игры. Рассказываю, как перестроили экономику и баланс, что случилось с удержанием и выручкой, и какие механики заменили лутбоксы.",createdAt:now-7*D},
+    b3:{author:"u_artem",kind:"blog",title:"Сетевой код на Unreal Engine 5: что мы узнали",text:"Разбор нашего перехода на UE5: репликация, предсказание на клиенте и оптимизация сервера. С примерами кода и цифрами.",createdAt:now-2.5*D}};
+  db.comments={
+    c1:{target:"blog:b2",author:"u_maria",text:"Очень полезно, спасибо!",createdAt:now-6.5*D},
+    c2:{target:"init:i_law",author:"u_oleg",text:"Квота нужна, но 30% слишком много на старте.",createdAt:now-1.5*D}};
+  ls.set(KEY_P,people); ls.set(KEY_DB,db); ls.set(KEY_ME,"u_irina");
+}
+if(!ls.get(KEY_DB)||!ls.get(KEY_P)) seed();
+
+let store=ls.get(KEY_DB);
+const people=ls.get(KEY_P);
+const meId=ls.get(KEY_ME)||people[0].id;
+const me=people.find(p=>p.id===meId)||people[0];
+const listeners=new Set();
+const clone=o=>JSON.parse(JSON.stringify(o));
+function save(){ ls.set(KEY_DB,store); emit(); }
+function emit(){ for(const l of listeners) l.fire(); }
+window.addEventListener("storage",e=>{ if(e.key===KEY_DB){ store=ls.get(KEY_DB)||store; emit(); } });
+const META={fromCache:false,hasPendingWrites:false};
+const snapDoc=(id,data)=>({id,exists:!!data,data:()=>data?clone(data):undefined,metadata:META});
+const deny=()=>Promise.reject({code:"invalid_argument",message:"Недостаточно прав в демо"});
+function allowed(coll,id,del){
+  if(coll==="staff"||coll==="initiatives"||coll==="channels") return !!me.admin;
+  if(coll==="ballots"||coll==="profiles") return id===me.id;
+  if(coll==="applications") return id===me.id||(del&&!!me.admin);
+  return true;
+}
+let seq=0; const newId=()=>"d"+Date.now().toString(36)+(seq++).toString(36);
+function docRef(coll,id){
+  return {id,path:coll+"/"+id,
+    get:async()=>snapDoc(id,store[coll]?.[id]),
+    set:async d=>{ if(!allowed(coll,id)) return deny(); (store[coll]??={})[id]=clone(d); save(); },
+    update:async d=>{ if(!allowed(coll,id)||!store[coll]?.[id]) return deny(); Object.assign(store[coll][id],clone(d)); save(); },
+    delete:async()=>{ if(!allowed(coll,id,true)) return deny(); if(store[coll]) delete store[coll][id]; save(); },
+    onSnapshot(next){ const l={fire:()=>next(snapDoc(id,store[coll]?.[id]))}; listeners.add(l); setTimeout(l.fire); return ()=>listeners.delete(l); }};
+}
+function query(coll,order,lim){
+  const run=()=>{ let docs=Object.entries(store[coll]||{}).map(([id,d])=>snapDoc(id,d));
+    if(order) docs.sort((a,b)=>{const x=a.data()[order.f],y=b.data()[order.f]; return (x>y?1:x<y?-1:0)*(order.d==="desc"?-1:1);});
+    if(lim) docs=docs.slice(0,lim);
+    return {docs,size:docs.length,empty:!docs.length,docChanges:()=>[],metadata:META}; };
+  return {orderBy:(f,d)=>query(coll,{f,d},lim),limit:n=>query(coll,order,n),where:()=>query(coll,order,lim),get:async()=>run(),
+    onSnapshot(next){ const l={fire:()=>next(run())}; listeners.add(l); setTimeout(l.fire); return ()=>listeners.delete(l); },
+    doc:id=>docRef(coll,id||newId()), add:async d=>{ const r=docRef(coll,newId()); await r.set(d); return r; }};
+}
+const db={collection:p=>query(p),doc:p=>{const [c,i]=p.split("/"); return docRef(c,i);}};
+const COLORS=["#D8FB4E","#7FD1F7","#F2B45A","#FF9AC1","#9BE3B5","#B9A6FF"];
+function avatar(name,i){ const ini=(name||"?").split(/\s+/).map(w=>w[0]).slice(0,2).join("").toUpperCase();
+  const svg=`<svg xmlns="http://www.w3.org/2000/svg" width="64" height="64"><rect width="64" height="64" rx="32" fill="${COLORS[i%COLORS.length]}"/><text x="32" y="41" font-family="Arial" font-size="24" font-weight="700" text-anchor="middle" fill="#222A38">${ini}</text></svg>`;
+  return "data:image/svg+xml,"+encodeURIComponent(svg); }
+function profile(id){ const i=people.findIndex(p=>p.id===id), p=people[i]; const name=p?.name||store.applications?.[id]?.name||"";
+  return {id,name,avatarUrl:avatar(name,i<0?0:i),color:COLORS[(i<0?0:i)%COLORS.length],email:null,isMe:id===me.id,guest:false}; }
+const user={me:async()=>({...profile(me.id),isOwner:!!me.admin,canEdit:!!me.admin}),id:async()=>me.id,isOwner:async()=>!!me.admin,canEdit:async()=>!!me.admin,can:async()=>true,
+  profiles:async ids=>Object.fromEntries([].concat(ids).map(id=>[id,profile(id)]))};
+window.claude={use:async name=>{ await new Promise(r=>setTimeout(r,0)); return name==="db"?db:name==="user"?user:null; }};
+
+function bar(){
+  const sel=document.createElement("select"); sel.id="demo-who"; sel.setAttribute("aria-label","Войти как");
+  for(const p of people){ const o=document.createElement("option"); o.value=p.id; o.textContent=p.name+(p.admin?" (админ)":""); o.selected=p.id===me.id; sel.append(o); }
+  sel.onchange=()=>{ ls.set(KEY_ME,sel.value); location.reload(); };
+  const add=document.createElement("button"); add.className="btn"; add.textContent="+ Новый гость";
+  add.onclick=()=>{ const n=people.filter(p=>p.id.startsWith("u_g")).length+1; const p={id:"u_g"+Date.now().toString(36),name:"Гость "+n}; people.push(p); ls.set(KEY_P,people); ls.set(KEY_ME,p.id); location.reload(); };
+  const reset=document.createElement("button"); reset.className="btn ghost"; reset.textContent="Сбросить демо"; let armed=false;
+  reset.onclick=()=>{ if(!armed){armed=true;reset.textContent="Точно сбросить? Нажмите ещё раз";setTimeout(()=>{armed=false;reset.textContent="Сбросить демо";},4000);return;}
+    try{[KEY_DB,KEY_P,KEY_ME].forEach(k=>localStorage.removeItem(k));}catch(e){} location.reload(); };
+  const box=document.createElement("div"); box.className="demo"; const w=document.createElement("div"); w.className="wrap";
+  const b=document.createElement("b"); b.textContent="Демо";
+  const t=document.createElement("span"); t.className="muted"; t.textContent="Люди и тексты выдуманы, данные хранятся только в этом браузере. Войти как:";
+  w.append(b,t,sel,add,reset); box.append(w); document.body.prepend(box);
+}
+if(document.readyState==="loading") document.addEventListener("DOMContentLoaded",bar); else bar();
+})();
+</script>
+<script>
+(() => {
+"use strict";
+/* ================= config ================= */
+const REQ_MAX = 3;
+const DEFAULT_CHANNELS = [
+  {id:"general", name:"общий", desc:"Новости, знакомства, всё подряд", order:1},
+  {id:"gamedesign", name:"геймдизайн", desc:"Механики, баланс, документация", order:2},
+  {id:"support", name:"господдержка", desc:"Гранты, льготы, реестры, законы", order:3},
+  {id:"jobs", name:"вакансии", desc:"Ищу работу, ищу людей, подряды", order:4},
+  {id:"tech", name:"технологии", desc:"Движки, инструменты, пайплайны", order:5}
+];
+/* Общая система тегов: id, подпись, ключевые основы слов для автотегирования */
+const TAGS = [
+  {id:"gamedesign", label:"геймдизайн", kw:["геймдиз","механик","баланс","левел-диз","gdd","кор-луп","core loop","монетизац"]},
+  {id:"narrative", label:"нарратив", kw:["нарратив","сценар","сюжет","диалог"," лор "]},
+  {id:"programming", label:"программирование", kw:["программ"," код ","кода ","c++","c#","бэкенд","backend","сервер","шейдер"]},
+  {id:"unreal", label:"unreal", kw:["unreal","ue5","ue4","анрил","blueprint"]},
+  {id:"unity", label:"unity", kw:["unity","юнити"]},
+  {id:"art", label:"арт", kw:[" арт","художник","концепт","иллюстрац","3d","моделлинг","анимац"," ui","интерфейс"]},
+  {id:"sound", label:"звук", kw:["звук","музык","саунд","озвуч"]},
+  {id:"qa", label:"тестирование", kw:["тестиров"," qa"]},
+  {id:"production", label:"продюсирование", kw:["продюс","менеджмент","продакшн","дедлайн"]},
+  {id:"marketing", label:"маркетинг", kw:["маркетинг","продвижен","трафик","комьюнити"," pr ","стрим","блогер","вишлист"]},
+  {id:"publishing", label:"издательство", kw:["издател","паблиш","publish","релиз","steam","vk play","rustore"]},
+  {id:"investment", label:"инвестиции", kw:["инвест","раунд","венчур","акселерат"]},
+  {id:"support", label:"господдержка", kw:["господдерж","грант","льгот","субсид","реестр","минцифр","институт развития интернета"]},
+  {id:"law", label:"законодательство", kw:["закон","маркировк","регулир","квот","стратеги","правов","юрист","налог"]},
+  {id:"esports", label:"киберспорт", kw:["киберспорт","турнир","esport"]},
+  {id:"education", label:"образование", kw:["образован","курс","стажир","студент","вуз","обучен","преподава"]},
+  {id:"mobile", label:"мобильные", kw:["мобил","android","ios","f2p"]},
+  {id:"jobs", label:"вакансии", kw:["ваканс","ищу работу","ищем","резюме","найм","подряд","фриланс","аутсорс"]}
+];
+const TAG = Object.fromEntries(TAGS.map(t=>[t.id,t]));
+const LEVELS = {expert:"Эксперт", pro:"Профессионал", spec:"Специалист"};
+
+const S = {
+  db:null, user:null, uid:null, isAdmin:false, canWrite:true, offline:false, ready:false, stale:false, loaded:{},
+  channels:[], messages:[], blogs:[], comments:[], inits:[], ballots:{}, apps:{}, staff:{}, profiles:{},
+  tab:"chats", channel:"general", replyTo:null, openComments:new Set(), openBlog:null, person:null, q:"", qType:"all",
+  peopleTag:"", initDraft:null, exportFmt:"hh", editingProfile:false
+};
+
+/* ================= helpers ================= */
+function h(tag, attrs, ...kids){
+  const el=document.createElement(tag);
+  for(const [k,v] of Object.entries(attrs||{})){
+    if(v==null||v===false) continue;
+    if(k.startsWith("on")) el.addEventListener(k.slice(2),v);
+    else if(k==="class") el.className=v; else if(k==="style") el.style.cssText=v;
+    else el.setAttribute(k,v===true?"":v);
+  }
+  for(const c of kids.flat()){ if(c==null||c===false) continue; el.append(c instanceof Node?c:document.createTextNode(String(c))); }
+  return el;
+}
+const svgNS="http://www.w3.org/2000/svg";
+function s(tag,attrs,...kids){ const el=document.createElementNS(svgNS,tag); for(const [k,v] of Object.entries(attrs||{})) el.setAttribute(k,v); kids.flat().forEach(c=>c!=null&&el.append(c instanceof Node?c:document.createTextNode(String(c)))); return el; }
+const rtf=new Intl.RelativeTimeFormat("ru",{numeric:"auto"});
+function ago(t){ const x=(t-Date.now())/1000, a=Math.abs(x); if(a<60) return "только что"; if(a<3600) return rtf.format(Math.round(x/60),"minute"); if(a<86400) return rtf.format(Math.round(x/3600),"hour"); return rtf.format(Math.round(x/86400),"day"); }
+const hm=t=>new Date(t).toLocaleTimeString("ru",{hour:"2-digit",minute:"2-digit"});
+const dayLabel=t=>{ const d=new Date(t), n=new Date(); const diff=Math.round((new Date(n.toDateString())-new Date(d.toDateString()))/864e5); return diff===0?"Сегодня":diff===1?"Вчера":d.toLocaleDateString("ru",{day:"numeric",month:"long"}); };
+const pr=new Intl.PluralRules("ru");
+const plural=(n,a,b,c)=>{ const f=pr.select(n); return n+" "+(f==="one"?a:f==="few"?b:c); };
+function toast(m){ const t=document.getElementById("toast"); t.textContent=m; t.hidden=false; clearTimeout(toast.t); toast.t=setTimeout(()=>t.hidden=true,3200); }
+function errText(e){ const c=e&&e.code; if(c==="invalid_argument") return "Нет прав на это действие."; if(c==="quota_exceeded") return "Хранилище сообщества заполнено."; return "Не получилось сохранить. Попробуйте ещё раз."; }
+async function guard(fn){ try{ await fn(); }catch(e){ toast(errText(e)); } }
+const norm=t=>(t||"").toLowerCase().replace(/ё/g,"е");
+function autoTag(...texts){ const t=" "+norm(texts.join(" "))+" "; return TAGS.filter(g=>g.kw.some(k=>t.includes(norm(k)))).map(g=>g.id); }
+function tagChips(ids,onClick){ return h("div",{class:"tags"},...ids.map(id=>h("button",{class:"chip tag",type:"button",onclick:()=>onClick?onClick(id):openTag(id)},"#"+TAG[id].label))); }
+function openTag(id){ S.q="#"+TAG[id].label; document.getElementById("q").value=S.q; render(); }
+function highlight(text,terms){
+  if(!terms.length) return [text];
+  const re=new RegExp("("+terms.map(t=>t.replace(/[.*+?^${}()|[\]\\]/g,"\\$&")).join("|")+")","gi");
+  return String(text).split(re).map((part,i)=>i%2?h("mark",{},part):part);
+}
+
+/* ================= membership ================= */
+function computeMembership(){
+  const members=new Set(Object.keys(S.staff));
+  const apps=Object.values(S.apps).sort((a,b)=>a.createdAt-b.createdAt);
+  const tally=a=>{ let y=0,n=0; for(const m of members){ const v=S.ballots[m]?.apps?.[a.id]; if(v==="for")y++; else if(v==="against")n++; } return {y,n}; };
+  const need=()=>Math.max(1,Math.min(REQ_MAX,members.size));
+  let ch=true; while(ch){ ch=false; for(const a of apps){ if(members.has(a.id)) continue; const t=tally(a); if(t.y>=need()&&t.y>t.n){ members.add(a.id); ch=true; } } }
+  const status={}; for(const a of apps){ const t=tally(a), req=need(); status[a.id]=members.has(a.id)?{state:"admitted",...t,req}:(t.n>=req&&t.n>t.y)?{state:"rejected",...t,req}:{state:"pending",...t,req}; }
+  return {members,status,need:need()};
+}
+let M={members:new Set(),status:{},need:1};
+const isMember=()=>S.isAdmin||M.members.has(S.uid);
+
+/* ================= profiles, privacy, levels ================= */
+let P={}; // platform profiles for ids on screen
+const displayName=id=>S.profiles[id]?.name||S.apps[id]?.name||P[id]?.name||"Участник";
+const avatarOf=id=>P[id]?.avatarUrl||"";
+function avatarEl(id,cls){ const u=avatarOf(id); return u?h("img",{class:"avatar "+(cls||""),src:u,alt:""}):h("div",{class:"avatar "+(cls||"")}); }
+function canSee(ownerId){
+  if(ownerId===S.uid) return true;
+  const p=S.profiles[ownerId]; if(!p) return true;
+  const v=p.visibility||"all";
+  if(v==="all") return true;
+  if(v==="nobody") return false;
+  if(v==="except") return !(p.hiddenFrom||[]).includes(S.uid);
+  if(v==="only") return (p.allowedFor||[]).includes(S.uid);
+  return true;
+}
+function yearsIn(p,tagId){ let y=0; for(const e of p.experience||[]){ const tags=autoTag(e.role,e.company,e.description); if(tags.includes(tagId)) y+=Math.max(0,(e.to||new Date().getFullYear())-(e.from||new Date().getFullYear())); } return y; }
+function endorsements(ownerId,tagId){ let n=0; for(const m of M.members){ if(m!==ownerId && S.ballots[m]?.endorse?.[ownerId]?.[tagId]) n++; } return n; }
+function expertise(ownerId){
+  const p=S.profiles[ownerId]; if(!p) return [];
+  const ids=new Set([...(p.skills||[]),...autoTag(p.headline,p.about,...(p.experience||[]).map(e=>e.role+" "+e.description))]);
+  return [...ids].filter(id=>TAG[id]).map(id=>{ const y=yearsIn(p,id), e=endorsements(ownerId,id);
+    const level= y>=7&&e>=2 ? "expert" : y>=3 ? "pro" : "spec"; return {id,years:y,endorse:e,level}; })
+    .sort((a,b)=>({expert:0,pro:1,spec:2}[a.level]-{expert:0,pro:1,spec:2}[b.level])||b.years-a.years);
+}
+function memberTags(id){ const fromProfile=expertise(id).map(e=>e.id); const fromMsgs={}; for(const m of S.messages) if(m.author===id) for(const t of autoTag(m.text)) fromMsgs[t]=(fromMsgs[t]||0)+1;
+  return [...new Set([...fromProfile,...Object.entries(fromMsgs).sort((a,b)=>b[1]-a[1]).slice(0,3).map(x=>x[0])])]; }
+
+/* ================= writes ================= */
+let chain=Promise.resolve();
+function writeBallot(mut){ chain=chain.then(async()=>{ const cur=S.ballots[S.uid]||{}; const next=JSON.parse(JSON.stringify({apps:{},votes:{},likes:{},endorse:{},...cur})); mut(next); await S.db.doc("ballots/"+S.uid).set(next); }).catch(e=>toast(errText(e))); return chain; }
+function confirmInline(btn,q,fn){ const box=h("span",{class:"row",style:"gap:6px"},h("span",{class:"small"},q),h("button",{class:"btn sm danger",onclick:fn},"Да, удалить"),h("button",{class:"btn ghost",onclick:()=>box.replaceWith(btn)},"Отмена")); btn.replaceWith(box); }
+const likesOf=id=>[...M.members].filter(m=>S.ballots[m]?.likes?.[id]).length;
+const iLike=id=>!!S.ballots[S.uid]?.likes?.[id];
+const toggleLike=id=>writeBallot(b=>{ if(b.likes[id]) delete b.likes[id]; else b.likes[id]=true; });
+
+/* ================= render shell ================= */
+let seq=0;
+async function render(){
+  const my=++seq;
+  M=computeMembership();
+  const ids=new Set([S.uid,...S.messages.map(m=>m.author),...S.blogs.map(b=>b.author),...S.comments.map(c=>c.author),...S.inits.map(i=>i.author),...Object.keys(S.apps),...Object.keys(S.profiles),...M.members].filter(Boolean));
+  P=S.user?await S.user.profiles([...ids]):{};
+  if(my!==seq) return;
+  renderWho(); renderTabs();
+  document.getElementById("search-box").hidden=!(S.ready&&isMember());
+  const main=document.getElementById("main");
+  if(S.tab==="me"&&!S.q.trim()&&main.querySelector("form[data-dirty]")) return; // не сбивать незасохранённый профиль
+  const saved={}; main.querySelectorAll("input[id],textarea[id],select[id]").forEach(el=>saved[el.id]=el.value);
+  const act=document.activeElement&&main.contains(document.activeElement)&&document.activeElement.id?document.activeElement:null;
+  const actId=act?.id, sel=act&&"selectionStart" in act?[act.selectionStart,act.selectionEnd]:null;
+  const msgBox=main.querySelector(".msgs"); const atBottom=!msgBox||msgBox.scrollHeight-msgBox.scrollTop-msgBox.clientHeight<60; const keepTop=msgBox?.scrollTop;
+  main.replaceChildren(...view());
+  for(const [id,v] of Object.entries(saved)){ const el=document.getElementById(id); if(el&&main.contains(el)&&v!==""&&el.dataset.fresh!=="1") el.value=v; }
+  if(actId){ const el=document.getElementById(actId); if(el){ el.focus({preventScroll:true}); if(sel) try{el.setSelectionRange(sel[0],sel[1]);}catch(e){} } }
+  const mb=main.querySelector(".msgs"); if(mb) mb.scrollTop=atBottom?mb.scrollHeight:keepTop;
+}
+function view(){
+  if(S.offline) return [h("div",{class:"card empty"},h("h3",{},"Сообщество недоступно в этом окне"),h("p",{},"Откройте страницу на claude.ai под своим аккаунтом."))];
+  if(!S.ready) return [h("div",{class:"card empty"},h("h3",{},"Загружаем сообщество…"))];
+  const out=[];
+  if(S.stale) out.push(h("div",{class:"notice warn",style:"margin-bottom:14px"},"Данные пока не доходят. То, что вы видите, может быть устаревшим."));
+  if(!isMember()) return [...out,renderGate()];
+  if(S.q.trim()) return [...out,renderSearch()];
+  const map={chats:renderChats,blogs:renderBlogs,people:renderPeople,inits:renderInits,stats:renderStats,apps:renderApps,me:renderMe};
+  out.push(map[S.tab]?map[S.tab]():renderChats());
+  return out;
+}
+function renderWho(){
+  const w=document.getElementById("who"); w.replaceChildren(); if(!S.uid) return;
+  w.append(avatarOf(S.uid)?h("img",{src:avatarOf(S.uid),alt:""}):"",h("span",{},displayName(S.uid)),
+    S.isAdmin?h("span",{class:"chip admin"},"Админ"):isMember()?h("span",{class:"chip"},"Участник"):h("span",{class:"chip"},"Гость"));
+}
+function renderTabs(){
+  const t=document.getElementById("tabs"); t.replaceChildren();
+  if(!S.ready||!isMember()){ t.hidden=true; return; } t.hidden=false;
+  const pending=Object.values(M.status).filter(s=>s.state==="pending").length, live=S.inits.filter(i=>i.status==="voting").length;
+  [["chats","Чаты",0],["blogs","Блоги и новости",0],["people","Люди",0],["inits","Инициативы",live],["stats","Аналитика",0],["apps","Заявки",pending],["me","Мой профиль",0]].forEach(([k,l,n])=>
+    t.append(h("button",{class:"tab",role:"tab","aria-selected":String(S.tab===k&&!S.q),onclick:()=>{S.tab=k;S.q="";S.person=null;S.openBlog=null;document.getElementById("q").value="";try{localStorage.setItem("rvi-tab",k)}catch(e){};render();}},l,n?h("span",{class:"count"},n):"")));
+}
+
+/* ================= gate ================= */
+function renderGate(){
+  const box=h("div",{class:"gate stack"});
+  if(!S.uid){ box.append(h("div",{class:"card empty"},h("h3",{},"Войдите, чтобы вступить"),h("p",{},"Подать анкету можно только под своим аккаунтом."))); return box; }
+  const mine=S.apps[S.uid], st=M.status[S.uid];
+  box.append(h("div",{class:"card stack"},
+    h("div",{class:"eyebrow"},"Закрытое профессиональное сообщество"),
+    h("h2",{},mine?"Ваша анкета на голосовании":"Расскажите о себе"),
+    h("p",{class:"muted",style:"margin:0"},"Сообщество только для людей, которые работают в индустрии. Всё внутри скрыто от игроков и случайных посетителей: чаты, блоги, профили и голосования открываются после того, как участники примут анкету."),
+    h("div",{class:"steps"},
+      h("div",{class:"step"},h("b",{},"Анкета"),"Опыт в индустрии, студия и ссылки на работы."),
+      h("div",{class:"step"},h("b",{},"Голосование"),"Участники проверяют анкету и голосуют."),
+      h("div",{class:"step"},h("b",{},"Допуск"),"Нужно "+plural(M.need,"голос","голоса","голосов")+" «за», и «за» больше, чем «против».")),
+    mine?(st.state==="rejected"?h("div",{class:"notice warn"},"Анкета отклонена: «против» "+st.n+", «за» "+st.y+". Дополните её и попросите администратора пересмотреть."):h("div",{class:"notice"},"Собрано «за»: "+st.y+" из "+st.req+", «против»: "+st.n+". Страница откроется сама, когда вас примут.")):""));
+  const v=mine||{};
+  const f=h("form",{class:"card stack"},
+    h("div",{class:"eyebrow"},mine?"Изменить анкету":"Анкета"),
+    h("div",{class:"grid2"},
+      h("label",{},"Имя и фамилия",h("input",{type:"text",id:"app-name",required:true,maxlength:80,value:v.name||""})),
+      h("label",{},"Студия или компания",h("input",{type:"text",id:"app-org",required:true,maxlength:80,value:v.org||""}))),
+    h("div",{class:"grid2"},
+      h("label",{},"Роль в индустрии",h("select",{id:"app-role"},...["Разработчик","Геймдизайнер","Художник","Продюсер","Издатель","Инвестор","Исследователь / преподаватель","Отраслевой журналист","Юрист / госсектор"].map(o=>h("option",{selected:v.role===o},o)))),
+      h("label",{},"Лет в индустрии",h("input",{type:"number",id:"app-years",min:0,max:60,value:v.years??""}))),
+    h("label",{},"О себе и своих проектах",h("textarea",{id:"app-about",required:true,maxlength:1500,placeholder:"Над какими играми работали, что умеете, чем полезны сообществу"},v.about||"")),
+    h("label",{},"Портфолио, Steam-страница или сайт студии",h("input",{type:"text",id:"app-links",required:true,maxlength:300,value:v.links||"",placeholder:"https://…"})),
+    h("div",{class:"row"},h("button",{class:"btn primary",type:"submit",disabled:!S.canWrite},mine?"Сохранить анкету":"Отправить на голосование")));
+  f.addEventListener("submit",e=>{e.preventDefault(); const q=id=>f.querySelector(id).value.trim();
+    const data={name:q("#app-name"),org:q("#app-org"),role:q("#app-role"),years:parseInt(q("#app-years"),10)||0,about:q("#app-about"),links:q("#app-links"),createdAt:mine?.createdAt||Date.now(),updatedAt:Date.now()};
+    if(!data.name||!data.about||!data.links||!data.org) return toast("Заполните имя, компанию, рассказ о себе и ссылку на работы.");
+    guard(async()=>{ await S.db.doc("applications/"+S.uid).set(data); toast(mine?"Анкета обновлена":"Анкета отправлена"); });});
+  box.append(f); return box;
+}
+
+/* ================= chats ================= */
+function channels(){ return (S.channels.length?S.channels:DEFAULT_CHANNELS).slice().sort((a,b)=>(a.order||99)-(b.order||99)); }
+function renderChats(){
+  const chs=channels(); if(!chs.find(c=>c.id===S.channel)) S.channel=chs[0]?.id;
+  const ch=chs.find(c=>c.id===S.channel)||{name:"",desc:""};
+  const msgs=S.messages.filter(m=>m.channel===S.channel).sort((a,b)=>a.createdAt-b.createdAt);
+  const list=h("div",{class:"chlist"},h("div",{class:"eyebrow",style:"padding:4px 10px 6px"},"Каналы"),
+    ...chs.map(c=>{ const n=S.messages.filter(m=>m.channel===c.id&&m.createdAt>Date.now()-864e5).length;
+      return h("button",{class:"ch","aria-current":String(c.id===S.channel),onclick:()=>{S.channel=c.id;S.replyTo=null;render();}},h("b",{},"# "+c.name+(n?"  · "+n:"")),h("span",{class:"ch-desc"},c.desc||""));}),
+    S.isAdmin?h("button",{class:"btn ghost sm",style:"margin-top:6px",onclick:addChannel},"+ Новый канал"):"");
+  const box=h("div",{class:"msgs",id:"msgs"});
+  let lastDay="";
+  if(!msgs.length) box.append(h("div",{class:"empty"},h("h3",{},"В канале пока тихо"),h("p",{},"Напишите первое сообщение. Теги к нему поставятся сами по содержанию.")));
+  for(const m of msgs){
+    const d=dayLabel(m.createdAt); if(d!==lastDay){ box.append(h("div",{class:"day"},d)); lastDay=d; }
+    const mine=m.author===S.uid, reply=m.replyTo&&S.messages.find(x=>x.id===m.replyTo);
+    const tags=autoTag(m.text), lk=likesOf(m.id);
+    box.append(h("div",{class:"msg"+(mine?" me":"")},avatarEl(m.author,"sm"),
+      h("div",{class:"stack",style:"gap:2px;min-width:0"},
+        h("div",{class:"bubble"},
+          h("div",{class:"who-line"},h("button",{class:"btn ghost",style:"padding:0;color:inherit;font-weight:600",onclick:()=>openPerson(m.author)},displayName(m.author)),S.staff[m.author]?h("span",{class:"chip admin"},"Админ"):""),
+          reply?h("div",{class:"quote"},displayName(reply.author)+": "+reply.text.slice(0,120)):"",
+          h("div",{class:"body-text"},m.text),
+          tags.length?h("div",{style:"margin-top:6px"},tagChips(tags)):"",
+          h("div",{class:"meta"},(lk?"♥ "+lk+" · ":"")+hm(m.createdAt))),
+        h("div",{class:"msg-actions",style:mine?"justify-content:flex-end":""},
+          h("button",{onclick:()=>{S.replyTo=m.id;render();document.getElementById("chat-text")?.focus();}},"Ответить"),
+          h("button",{style:iLike(m.id)?"color:var(--accent)":"",onclick:()=>toggleLike(m.id)},iLike(m.id)?"♥ Нравится":"♡ Нравится"),
+          (mine||S.isAdmin)?h("button",{onclick:e=>confirmInline(e.currentTarget,"Удалить?",()=>guard(()=>S.db.doc("messages/"+m.id).delete()))},"Удалить"):""))));
+  }
+  const replyMsg=S.replyTo&&S.messages.find(x=>x.id===S.replyTo);
+  const ta=h("textarea",{id:"chat-text",placeholder:"Сообщение в #"+ch.name+" (Enter — отправить, Shift+Enter — новая строка)",maxlength:4000});
+  const send=()=>{ const text=ta.value.trim(); if(!text) return; const replyTo=S.replyTo||null;
+    guard(async()=>{ await S.db.collection("messages").add({channel:S.channel,author:S.uid,text,replyTo,createdAt:Date.now()}); const live=document.getElementById("chat-text"); if(live) live.value=""; S.replyTo=null; render(); }); };
+  ta.addEventListener("keydown",e=>{ if(e.key==="Enter"&&!e.shiftKey){ e.preventDefault(); send(); } });
+  const composer=h("div",{class:"composer"},
+    replyMsg?h("div",{class:"row small"},h("div",{class:"quote grow",style:"margin:0"},"Ответ "+displayName(replyMsg.author)+": "+replyMsg.text.slice(0,90)),h("button",{class:"btn ghost sm",onclick:()=>{S.replyTo=null;render();}},"✕")):"",
+    h("div",{class:"row"},h("div",{class:"grow"},ta),h("button",{class:"btn primary",disabled:!S.canWrite,onclick:send},"Отправить")));
+  return h("div",{class:"chat"},list,h("div",{class:"chpane"},
+    h("div",{class:"chhead"},h("div",{class:"grow"},h("b",{},"# "+ch.name),h("div",{class:"small muted"},ch.desc||"")),
+      h("span",{class:"small muted"},plural(msgs.length,"сообщение","сообщения","сообщений")+" · "+plural(new Set(msgs.map(m=>m.author)).size,"автор","автора","авторов"))),
+    box,composer));
+}
+let addingChannel=false;
+function addChannel(e){
+  const btn=e.currentTarget; if(addingChannel) return; addingChannel=true;
+  const name=h("input",{type:"text",id:"new-ch",placeholder:"название"}), desc=h("input",{type:"text",id:"new-ch-desc",placeholder:"о чём канал"});
+  const box=h("div",{class:"stack",style:"padding:6px 4px"},name,desc,h("div",{class:"row"},
+    h("button",{class:"btn sm primary",onclick:()=>{ const n=name.value.trim().toLowerCase().replace(/^#/,""); if(!n) return;
+      const id="c"+Date.now().toString(36);
+      guard(async()=>{ const base=S.channels.length?[]:DEFAULT_CHANNELS; for(const c of base) await S.db.doc("channels/"+c.id).set(c);
+        await S.db.doc("channels/"+id).set({name:n,desc:desc.value.trim(),order:channels().length+1}); addingChannel=false; S.channel=id; render(); }); }},"Создать"),
+    h("button",{class:"btn sm ghost",onclick:()=>{addingChannel=false;render();}},"Отмена")));
+  btn.replaceWith(box); name.focus();
+}
+
+/* ================= blogs & news ================= */
+function renderBlogs(){
+  if(S.openBlog){ const b=S.blogs.find(x=>x.id===S.openBlog); if(b) return blogFull(b); S.openBlog=null; }
+  const left=h("div",{class:"col"});
+  const title=h("input",{type:"text",id:"blog-title",placeholder:"Заголовок",maxlength:160});
+  const text=h("textarea",{id:"blog-text",placeholder:"Поделитесь опытом: разбор проекта, кейс с грантом, как вы искали издателя. Теги поставятся автоматически.",maxlength:20000,style:"min-height:110px"});
+  const kind=S.isAdmin?h("select",{id:"blog-kind",style:"width:auto"},h("option",{value:"blog"},"Запись в блог"),h("option",{value:"news"},"Новость сообщества")):null;
+  left.append(h("div",{class:"card stack"},h("div",{class:"eyebrow"},"Новая запись"),title,text,h("div",{class:"row"},kind||"",h("div",{class:"grow"}),
+    h("button",{class:"btn primary",disabled:!S.canWrite,onclick:()=>{ const t=title.value.trim(), x=text.value.trim(); if(!t||!x) return toast("Нужны заголовок и текст.");
+      guard(async()=>{ await S.db.collection("blogs").add({author:S.uid,title:t,text:x,kind:kind?.value||"blog",createdAt:Date.now()}); ["blog-title","blog-text"].forEach(id=>{const el=document.getElementById(id); if(el) el.value="";}); toast("Опубликовано"); }); }},"Опубликовать"))));
+  const news=S.blogs.filter(b=>b.kind==="news"), blogs=S.blogs.filter(b=>b.kind!=="news");
+  if(!S.blogs.length) left.append(h("div",{class:"card empty"},h("h3",{},"Записей пока нет"),h("p",{},"Блоги — место для экспертизы: опыт, кейсы, разборы. Новости публикуют администраторы.")));
+  blogs.forEach(b=>left.append(blogCard(b)));
+  const rail=h("div",{class:"col"},h("div",{class:"card stack"},h("div",{class:"eyebrow"},"Новости сообщества"),
+    news.length?news.slice(0,6).map(n=>h("button",{class:"btn ghost",style:"text-align:left;padding:6px 0;color:var(--ink)",onclick:()=>{S.openBlog=n.id;render();}},h("div",{class:"small muted"},ago(n.createdAt)),h("div",{style:"font-weight:600"},n.title),tagChips(autoTag(n.title,n.text).slice(0,3)))):h("p",{class:"small muted",style:"margin:0"},"Новостей пока нет.")));
+  return h("div",{class:"layout"},left,rail);
+}
+function blogCard(b){
+  const cs=S.comments.filter(c=>c.target==="blog:"+b.id), lk=likesOf(b.id);
+  return h("article",{class:"card stack"},
+    h("div",{class:"post-head"},avatarEl(b.author),h("div",{class:"grow"},h("button",{class:"btn ghost",style:"padding:0;color:var(--ink);font-weight:600",onclick:()=>openPerson(b.author)},displayName(b.author)),h("div",{class:"small muted"},ago(b.createdAt))),b.kind==="news"?h("span",{class:"chip admin"},"Новость"):""),
+    h("h3",{style:"font-size:18px;cursor:pointer",onclick:()=>{S.openBlog=b.id;render();}},b.title),
+    h("div",{class:"body-text muted"},b.text.length>280?b.text.slice(0,280)+"…":b.text),
+    tagChips(autoTag(b.title,b.text)),
+    h("div",{class:"actions"},
+      h("button",{class:"btn ghost",style:iLike(b.id)?"color:var(--accent)":"",onclick:()=>toggleLike(b.id)},(iLike(b.id)?"♥ ":"♡ ")+(lk||"")),
+      h("button",{class:"btn ghost",onclick:()=>{S.openBlog=b.id;render();}},"Читать и обсудить"+(cs.length?" · "+cs.length:""))));
+}
+function blogFull(b){
+  const cs=S.comments.filter(c=>c.target==="blog:"+b.id);
+  return h("div",{class:"layout"},h("div",{class:"col"},
+    h("div",{class:"row"},h("button",{class:"btn ghost",onclick:()=>{S.openBlog=null;render();}},"← Все записи")),
+    h("article",{class:"card stack"},
+      h("div",{class:"post-head"},avatarEl(b.author),h("div",{class:"grow"},h("div",{class:"name"},displayName(b.author)),h("div",{class:"small muted"},new Date(b.createdAt).toLocaleString("ru"))),b.kind==="news"?h("span",{class:"chip admin"},"Новость"):""),
+      h("h2",{style:"font-size:24px"},b.title), tagChips(autoTag(b.title,b.text)),
+      h("div",{class:"body-text"},b.text),
+      h("div",{class:"actions"},h("button",{class:"btn ghost",style:iLike(b.id)?"color:var(--accent)":"",onclick:()=>toggleLike(b.id)},(iLike(b.id)?"♥ Нравится":"♡ Нравится")+(likesOf(b.id)?" · "+likesOf(b.id):"")),
+        (b.author===S.uid||S.isAdmin)?h("button",{class:"btn ghost danger",onclick:e=>confirmInline(e.currentTarget,"Удалить запись?",()=>guard(async()=>{await S.db.doc("blogs/"+b.id).delete(); S.openBlog=null;}))},"Удалить"):""),
+      commentsBlock("blog:"+b.id,cs))),h("div",{class:"col"}));
+}
+function commentsBlock(target,cs){
+  const inp=h("input",{type:"text",id:"c-"+target,maxlength:2000,placeholder:"Комментарий…"});
+  const send=()=>{ const text=inp.value.trim(); if(!text) return; guard(async()=>{ await S.db.collection("comments").add({target,author:S.uid,text,createdAt:Date.now()}); const l=document.getElementById("c-"+target); if(l) l.value=""; }); };
+  inp.addEventListener("keydown",e=>{ if(e.key==="Enter") send(); });
+  return h("div",{class:"comments"},...cs.map(c=>h("div",{class:"comment"},avatarEl(c.author,"sm"),h("div",{class:"grow"},
+    h("div",{class:"small"},h("b",{},displayName(c.author))," ",h("span",{class:"muted"},ago(c.createdAt)),(c.author===S.uid||S.isAdmin)?h("button",{class:"btn ghost danger",style:"padding:0 6px;font-size:12px",onclick:()=>guard(()=>S.db.doc("comments/"+c.id).delete())},"удалить"):""),
+    h("p",{},c.text)))),h("div",{class:"row"},h("div",{class:"grow"},inp),h("button",{class:"btn",disabled:!S.canWrite,onclick:send},"Отправить")));
+}
+
+/* ================= people ================= */
+function openPerson(id){ S.tab="people"; S.person=id; S.q=""; const q=document.getElementById("q"); if(q) q.value=""; render(); window.scrollTo({top:0}); }
+function renderPeople(){
+  if(S.person) return personFull(S.person);
+  const ids=[...M.members];
+  const tagCounts={}; ids.forEach(id=>{ if(canSee(id)) memberTags(id).forEach(t=>tagCounts[t]=(tagCounts[t]||0)+1); });
+  const shown=ids.filter(id=>!S.peopleTag||(canSee(id)&&memberTags(id).includes(S.peopleTag)));
+  return h("div",{class:"stack"},
+    h("div",{class:"row"},h("h2",{class:"sec-title grow"},"Участники индустрии"),h("span",{class:"small muted"},plural(ids.length,"участник","участника","участников"))),
+    h("div",{class:"tags"},h("button",{class:"chip","aria-pressed":String(!S.peopleTag),onclick:()=>{S.peopleTag="";render();}},"Все"),
+      ...Object.entries(tagCounts).sort((a,b)=>b[1]-a[1]).map(([t,n])=>h("button",{class:"chip","aria-pressed":String(S.peopleTag===t),onclick:()=>{S.peopleTag=t;render();}},"#"+TAG[t].label+" "+n))),
+    h("div",{class:"people"},...shown.map(personCard)));
+}
+function personCard(id){
+  const visible=canSee(id), p=S.profiles[id]||{}, ex=visible?expertise(id).slice(0,3):[];
+  return h("button",{class:"card person",onclick:()=>openPerson(id)},
+    h("div",{class:"post-head"},avatarEl(id),h("div",{class:"grow"},h("div",{class:"name"},displayName(id)),h("div",{class:"small muted"},visible?(p.headline||S.apps[id]?.role||"Участник"):"Профиль скрыт")),S.staff[id]?h("span",{class:"chip admin"},"Админ"):""),
+    visible&&ex.length?h("div",{class:"tags"},...ex.map(e=>h("span",{class:"chip "+(e.level==="expert"?"lvl-expert":e.level==="pro"?"lvl-pro":"")},LEVELS[e.level]+" · "+TAG[e.id].label))):"",
+    visible?h("div",{class:"tags"},...memberTags(id).filter(t=>!ex.find(e=>e.id===t)).slice(0,4).map(t=>h("span",{class:"chip tag"},"#"+TAG[t].label))):h("div",{class:"small muted"},"Участник ограничил, кто видит его профиль."));
+}
+function personFull(id){
+  const back=h("button",{class:"btn ghost",onclick:()=>{S.person=null;render();}},"← Все участники");
+  if(!canSee(id)) return h("div",{class:"stack"},back,h("div",{class:"card empty"},h("h3",{},displayName(id)),h("p",{},"Участник закрыл свой профиль от вас. Написать ему можно в общих чатах.")));
+  const p=S.profiles[id]||{}, app=S.apps[id]||{}, ex=expertise(id);
+  const msgs=S.messages.filter(m=>m.author===id).length, posts=S.blogs.filter(b=>b.author===id);
+  const myEnd=S.ballots[S.uid]?.endorse?.[id]||{};
+  return h("div",{class:"layout"},h("div",{class:"col"},back,
+    h("div",{class:"card stack"},
+      h("div",{class:"post-head",style:"gap:14px"},avatarEl(id,"lg"),h("div",{class:"grow"},h("h2",{style:"font-size:22px"},displayName(id)),h("div",{class:"muted"},p.headline||app.role||""),h("div",{class:"small muted"},[p.company||app.org,p.city].filter(Boolean).join(" · "))),
+        S.staff[id]?h("span",{class:"chip admin"},"Админ"):""),
+      p.about||app.about?h("div",{class:"body-text"},p.about||app.about):"",
+      (p.links||app.links)?h("div",{class:"small"},"Ссылки: ",p.links||app.links):""),
+    h("div",{class:"card stack"},h("div",{class:"eyebrow"},"Экспертиза"),
+      ex.length?h("div",{class:"stack"},...ex.map(e=>h("div",{class:"row"},
+        h("span",{class:"chip "+(e.level==="expert"?"lvl-expert":e.level==="pro"?"lvl-pro":"")},LEVELS[e.level]),
+        h("b",{class:"grow"},"#"+TAG[e.id].label),
+        h("span",{class:"small muted"},plural(e.years,"год","года","лет")+" опыта · "+plural(e.endorse,"подтверждение","подтверждения","подтверждений")),
+        id!==S.uid?h("button",{class:"btn sm"+(myEnd[e.id]?" sel-yes":""),disabled:!S.canWrite,onclick:()=>writeBallot(b=>{ b.endorse[id]=b.endorse[id]||{}; if(b.endorse[id][e.id]) delete b.endorse[id][e.id]; else b.endorse[id][e.id]=true; })},myEnd[e.id]?"Подтверждено":"Подтвердить"):""))):h("p",{class:"muted small",style:"margin:0"},"Участник пока не заполнил опыт.")),
+    (p.experience||[]).length?h("div",{class:"card stack"},h("div",{class:"eyebrow"},"Опыт"),...p.experience.slice().sort((a,b)=>(b.from||0)-(a.from||0)).map(e=>h("div",{class:"exp"},
+      h("b",{},e.role),h("span",{class:"small muted"},e.company+" · "+(e.from||"")+"–"+(e.to||"н.в.")),e.description?h("span",{class:"small"},e.description):"",tagChips(autoTag(e.role,e.description))))):"",
+    posts.length?h("div",{class:"card stack"},h("div",{class:"eyebrow"},"Блог"),...posts.map(b=>h("button",{class:"btn ghost",style:"text-align:left;color:var(--ink);padding:4px 0",onclick:()=>{S.tab="blogs";S.openBlog=b.id;S.person=null;render();}},b.title))):""),
+    h("div",{class:"col"},h("div",{class:"card stack small"},h("div",{class:"eyebrow"},"Активность"),
+      h("div",{},plural(msgs,"сообщение","сообщения","сообщений")+" в чатах"),h("div",{},plural(posts.length,"запись","записи","записей")+" в блоге"),
+      h("div",{class:"tags"},...memberTags(id).map(t=>h("span",{class:"chip tag"},"#"+TAG[t].label)))),
+      levelsCard()));
+}
+function levelsCard(){ return h("div",{class:"card flat stack small"},h("div",{class:"eyebrow"},"Кто есть кто"),
+  h("div",{},h("b",{},"Специалист")," — указал направление в профиле."),
+  h("div",{},h("b",{},"Профессионал")," — 3+ года опыта по направлению."),
+  h("div",{},h("b",{},"Эксперт")," — 7+ лет опыта и 2+ подтверждения от других участников.")); }
+
+/* ================= my profile, privacy, export ================= */
+function renderMe(){
+  const p=S.profiles[S.uid]||{}, app=S.apps[S.uid]||{};
+  const exp=(p.experience||[]).map(e=>({...e}));
+  const left=h("div",{class:"col"});
+  const f=h("form",{class:"card stack"},h("div",{class:"eyebrow"},"Профиль"),
+    h("div",{class:"grid2"},h("label",{},"Имя",h("input",{type:"text",id:"pf-name",value:p.name||app.name||displayName(S.uid)})),h("label",{},"Должность одной строкой",h("input",{type:"text",id:"pf-head",value:p.headline||app.role||"",placeholder:"Ведущий геймдизайнер, мобильные F2P"}))),
+    h("div",{class:"grid2"},h("label",{},"Компания",h("input",{type:"text",id:"pf-company",value:p.company||app.org||""})),h("label",{},"Город",h("input",{type:"text",id:"pf-city",value:p.city||""}))),
+    h("label",{},"О себе",h("textarea",{id:"pf-about"},p.about||app.about||"")),
+    h("label",{},"Ссылки",h("input",{type:"text",id:"pf-links",value:p.links||app.links||""})),
+    h("div",{},h("div",{class:"small",style:"font-weight:600;margin-bottom:6px"},"Направления (влияют на теги и уровень)"),
+      h("div",{class:"tags",id:"pf-skills"},...TAGS.map(t=>h("button",{type:"button",class:"chip","aria-pressed":String((p.skills||[]).includes(t.id)),"data-id":t.id,onclick:e=>{const b=e.currentTarget;b.setAttribute("aria-pressed",String(b.getAttribute("aria-pressed")!=="true"));}},t.label)))));
+  const expBox=h("div",{class:"stack",id:"exp-box"});
+  const expRow=(e,i)=>h("div",{class:"card flat stack","data-i":i},
+    h("div",{class:"grid2"},h("label",{},"Роль",h("input",{type:"text",id:"ex-role-"+i,value:e.role||""})),h("label",{},"Компания",h("input",{type:"text",id:"ex-co-"+i,value:e.company||""}))),
+    h("div",{class:"grid3"},h("label",{},"С (год)",h("input",{type:"number",id:"ex-from-"+i,value:e.from||""})),h("label",{},"По (пусто — сейчас)",h("input",{type:"number",id:"ex-to-"+i,value:e.to||""})),h("div",{style:"align-self:end"},h("button",{type:"button",class:"btn ghost danger",onclick:ev=>ev.currentTarget.closest("[data-i]").remove()},"Убрать"))),
+    h("label",{},"Чем занимались",h("textarea",{id:"ex-desc-"+i,style:"min-height:60px"},e.description||"")));
+  exp.forEach((e,i)=>expBox.append(expRow(e,i)));
+  let nextI=exp.length;
+  f.append(h("div",{class:"eyebrow",style:"margin-top:6px"},"Опыт работы"),expBox,h("div",{},h("button",{type:"button",class:"btn sm",onclick:()=>expBox.append(expRow({},nextI++))},"+ Добавить место работы")));
+  f.append(h("div",{class:"row"},h("button",{class:"btn primary",type:"submit",disabled:!S.canWrite},"Сохранить профиль"),h("span",{class:"small muted"},"Пока профиль не сохранён, страница его не перерисовывает.")));
+  const dirty=()=>{ f.dataset.dirty="1"; };
+  f.addEventListener("input",dirty); f.addEventListener("click",e=>{ if(e.target.closest("button[type=button]")) dirty(); });
+  f.addEventListener("submit",e=>{e.preventDefault(); const v=id=>(f.querySelector("#"+id)?.value||"").trim();
+    const experience=[...expBox.querySelectorAll("[data-i]")].map(r=>{const i=r.dataset.i; return {role:v("ex-role-"+i),company:v("ex-co-"+i),from:parseInt(v("ex-from-"+i),10)||null,to:parseInt(v("ex-to-"+i),10)||null,description:v("ex-desc-"+i)};}).filter(x=>x.role||x.company);
+    const skills=[...f.querySelectorAll("#pf-skills [aria-pressed=true]")].map(b=>b.dataset.id);
+    const data={...p,name:v("pf-name"),headline:v("pf-head"),company:v("pf-company"),city:v("pf-city"),about:v("pf-about"),links:v("pf-links"),skills,experience,visibility:p.visibility||"all",hiddenFrom:p.hiddenFrom||[],allowedFor:p.allowedFor||[],updatedAt:Date.now()};
+    guard(async()=>{ await S.db.doc("profiles/"+S.uid).set(data); delete f.dataset.dirty; toast("Профиль сохранён"); render(); });});
+  left.append(f);
+  left.append(privacyCard(p), exportCard(p));
+  const ex=expertise(S.uid);
+  const rail=h("div",{class:"col"},h("div",{class:"card stack"},h("div",{class:"eyebrow"},"Ваши уровни"),
+    ex.length?ex.map(e=>h("div",{class:"row small"},h("span",{class:"chip "+(e.level==="expert"?"lvl-expert":e.level==="pro"?"lvl-pro":"")},LEVELS[e.level]),h("span",{},"#"+TAG[e.id].label))):h("p",{class:"small muted",style:"margin:0"},"Заполните опыт и направления, чтобы получить уровни.")),levelsCard(),
+    h("button",{class:"btn",onclick:()=>openPerson(S.uid)},"Как меня видят другие"));
+  return h("div",{class:"layout"},left,rail);
+}
+function privacyCard(p){
+  const vis=p.visibility||"all";
+  const others=[...M.members].filter(id=>id!==S.uid);
+  const listKey=vis==="except"?"hiddenFrom":vis==="only"?"allowedFor":null;
+  const chosen=new Set(listKey?(p[listKey]||[]):[]);
+  const save=patch=>guard(async()=>{ const base=S.profiles[S.uid]||{name:displayName(S.uid)}; await S.db.doc("profiles/"+S.uid).set({...base,visibility:vis,hiddenFrom:base.hiddenFrom||[],allowedFor:base.allowedFor||[],...patch,updatedAt:Date.now()}); toast("Видимость профиля обновлена"); });
+  const opts=[["all","Все участники"],["except","Все, кроме выбранных"],["only","Только выбранные"],["nobody","Никто"]];
+  return h("div",{class:"card stack"},h("div",{class:"eyebrow"},"Кто видит мой профиль"),
+    h("div",{class:"tags"},...opts.map(([k,l])=>h("button",{class:"chip","aria-pressed":String(vis===k),disabled:!S.canWrite,onclick:()=>save({visibility:k})},l))),
+    h("p",{class:"small muted",style:"margin:0"},vis==="all"?"Профиль, опыт и экспертизу видят все принятые участники. Игрокам и посторонним сообщество закрыто целиком.":vis==="nobody"?"Другие видят только ваше имя в чатах.":"Отметьте участников ниже. Имя в чатах видно всем."),
+    listKey?h("div",{class:"tags"},...others.map(id=>h("button",{class:"chip","aria-pressed":String(chosen.has(id)),onclick:()=>{ const s=new Set(chosen); s.has(id)?s.delete(id):s.add(id); save({[listKey]:[...s]}); }},displayName(id)))):"");
+}
+function exportCard(p){
+  const name=p.name||displayName(S.uid);
+  const ex=expertise(S.uid);
+  const jsonResume={basics:{name,label:p.headline||"",summary:p.about||"",location:{city:p.city||""},profiles:p.links?[{url:p.links}]:[]},
+    work:(p.experience||[]).map(e=>({name:e.company,position:e.role,startDate:e.from?String(e.from):"",endDate:e.to?String(e.to):"",summary:e.description})),
+    skills:ex.map(e=>({name:TAG[e.id].label,level:LEVELS[e.level],keywords:[plural(e.years,"год","года","лет")+" опыта",plural(e.endorse,"подтверждение","подтверждения","подтверждений")+" в РВИ"]})),
+    meta:{source:"Сообщество РВИ",verified:"членство подтверждено голосованием участников"}};
+  const hh=[name,p.headline||"",[p.company,p.city].filter(Boolean).join(", "),"","О себе",p.about||"","","Опыт работы",
+    ...(p.experience||[]).slice().sort((a,b)=>(b.from||0)-(a.from||0)).flatMap(e=>[(e.from||"")+" — "+(e.to||"по настоящее время")+"  "+e.company,e.role,e.description||"",""]),
+    "Ключевые навыки",ex.map(e=>TAG[e.id].label+" ("+LEVELS[e.level].toLowerCase()+")").join(", "),"","Участник Сообщества РВИ, членство подтверждено голосованием."].join("\n");
+  const out=S.exportFmt==="json"?JSON.stringify(jsonResume,null,2):S.exportFmt==="api"?
+    "GET /api/v1/members/{id}/resume\nAuthorization: Bearer <токен площадки-партнёра>\n\n200 OK\n"+JSON.stringify(jsonResume,null,2):hh;
+  const pre=h("div",{class:"code",id:"export-out"},out);
+  return h("div",{class:"card stack"},h("div",{class:"eyebrow"},"Экспорт опыта на площадки"),
+    h("p",{class:"small muted",style:"margin:0"},"Опыт и экспертиза, подтверждённые сообществом, выгружаются в резюме. Сейчас — копированием. В рабочей версии площадки будут забирать профиль сами через API РВИ, с вашего согласия."),
+    h("div",{class:"tags"},...[["hh","Текст резюме (hh.ru, Хабр Карьера)"],["json","JSON Resume"],["api","Пример ответа API"]].map(([k,l])=>h("button",{class:"chip","aria-pressed":String(S.exportFmt===k),onclick:()=>{S.exportFmt=k;render();}},l))),
+    pre,
+    h("div",{class:"row"},h("button",{class:"btn primary",onclick:()=>{ navigator.clipboard?.writeText(out).then(()=>toast("Скопировано"),()=>{ const r=document.createRange(); r.selectNodeContents(pre); getSelection().removeAllRanges(); getSelection().addRange(r); toast("Выделено, нажмите Ctrl+C"); }); }},"Копировать"),
+      h("a",{class:"btn",href:"https://hh.ru/applicant/resumes/new",target:"_blank",rel:"noopener"},"Открыть hh.ru"),
+      h("a",{class:"btn",href:"https://career.habr.com/",target:"_blank",rel:"noopener"},"Открыть Хабр Карьеру")));
+}
+
+/* ================= search ================= */
+function renderSearch(){
+  const raw=S.q.trim(); const tagTerms=[...raw.matchAll(/#([\p{L}\d-]+)/gu)].map(m=>norm(m[1]));
+  const tagIds=TAGS.filter(t=>tagTerms.some(x=>norm(t.label).startsWith(x))).map(t=>t.id);
+  const words=norm(raw.replace(/#[\p{L}\d-]+/gu,"")).split(/\s+/).filter(w=>w.length>1);
+  const score=(text,tags)=>{ const t=norm(text); let sc=0; for(const w of words){ const c=t.split(w).length-1; if(!c) return 0; sc+=c; } if(tagIds.length){ const hit=tagIds.filter(id=>tags.includes(id)).length; if(!hit) return 0; sc+=hit*3; } return sc||(!words.length&&!tagIds.length?0:sc); };
+  const results=[];
+  for(const id of M.members){ if(!canSee(id)) continue; const p=S.profiles[id]||{}, a=S.apps[id]||{};
+    const text=[displayName(id),p.headline,p.company,p.about,a.role,a.org,a.about,...(p.experience||[]).map(e=>e.role+" "+e.company+" "+e.description)].join(" ");
+    const sc=score(text,memberTags(id)); if(sc) results.push({type:"people",sc,id,text}); }
+  for(const m of S.messages){ const sc=score(m.text+" "+displayName(m.author),autoTag(m.text)); if(sc) results.push({type:"messages",sc,m,t:m.createdAt}); }
+  for(const b of S.blogs){ const sc=score(b.title+" "+b.title+" "+b.text,autoTag(b.title,b.text)); if(sc) results.push({type:"blogs",sc,b,t:b.createdAt}); }
+  for(const i of S.inits){ const sc=score(i.title+" "+i.summary+" "+(i.body||""),autoTag(i.title,i.summary,i.body)); if(sc) results.push({type:"inits",sc,i,t:i.createdAt}); }
+  const counts={all:results.length,people:0,messages:0,blogs:0,inits:0}; results.forEach(r=>counts[r.type]++);
+  const shown=results.filter(r=>S.qType==="all"||r.type===S.qType).sort((a,b)=>b.sc-a.sc||(b.t||0)-(a.t||0)).slice(0,60);
+  const terms=[...words];
+  const types=[["all","Всё"],["people","Люди"],["messages","Сообщения"],["blogs","Блоги"],["inits","Инициативы"]];
+  const chName=id=>channels().find(c=>c.id===id)?.name||id;
+  return h("div",{class:"stack"},
+    h("div",{class:"row"},h("h2",{class:"sec-title grow"},"Поиск: "+raw),h("button",{class:"btn ghost",onclick:()=>{S.q="";document.getElementById("q").value="";render();}},"Закрыть поиск")),
+    h("div",{class:"tags"},...types.map(([k,l])=>h("button",{class:"chip","aria-pressed":String(S.qType===k),onclick:()=>{S.qType=k;render();}},l+" "+counts[k]))),
+    tagIds.length?h("div",{class:"small muted"},"Фильтр по тегам: ",tagIds.map(t=>"#"+TAG[t].label).join(", ")):"",
+    !shown.length?h("div",{class:"card empty"},h("h3",{},"Ничего не нашлось"),h("p",{},"Попробуйте другое слово или тег, например #господдержка или #unreal.")):"",
+    ...shown.map(r=>{
+      if(r.type==="people") return h("button",{class:"card person",onclick:()=>openPerson(r.id)},h("div",{class:"row"},h("span",{class:"chip"},"Человек"),h("b",{},displayName(r.id))),h("div",{class:"small muted"},...highlight((S.profiles[r.id]?.headline||S.apps[r.id]?.role||""),terms)),h("div",{class:"tags"},...memberTags(r.id).slice(0,5).map(t=>h("span",{class:"chip tag"},"#"+TAG[t].label))));
+      if(r.type==="messages") return h("button",{class:"card person",onclick:()=>{S.q="";document.getElementById("q").value="";S.tab="chats";S.channel=r.m.channel;render();}},h("div",{class:"row small"},h("span",{class:"chip"},"# "+chName(r.m.channel)),h("b",{},displayName(r.m.author)),h("span",{class:"muted"},ago(r.m.createdAt))),h("div",{class:"body-text"},...highlight(r.m.text.slice(0,300),terms)));
+      if(r.type==="blogs") return h("button",{class:"card person",onclick:()=>{S.q="";document.getElementById("q").value="";S.tab="blogs";S.openBlog=r.b.id;render();}},h("div",{class:"row small"},h("span",{class:"chip"},r.b.kind==="news"?"Новость":"Блог"),h("b",{},displayName(r.b.author))),h("div",{style:"font-weight:600"},...highlight(r.b.title,terms)),h("div",{class:"small muted"},...highlight(r.b.text.slice(0,220),terms)));
+      return h("button",{class:"card person",onclick:()=>{S.q="";document.getElementById("q").value="";S.tab="inits";render();}},h("div",{class:"row small"},h("span",{class:"chip law"},r.i.kind==="law"?"Законопроект":"Идея"),h("span",{class:"reg"},regNo(r.i))),h("div",{style:"font-weight:600"},...highlight(r.i.title,terms)),h("div",{class:"small muted"},...highlight(r.i.summary,terms)));
+    }));
+}
+
+/* ================= analytics ================= */
+function renderStats(){
+  const DAY=864e5, now=Date.now(), start=new Date(new Date().toDateString()).getTime();
+  const days=[...Array(14)].map((_,i)=>start-(13-i)*DAY);
+  const perDay=days.map(d=>S.messages.filter(m=>m.createdAt>=d&&m.createdAt<d+DAY).length+S.blogs.filter(b=>b.createdAt>=d&&b.createdAt<d+DAY).length+S.comments.filter(c=>c.createdAt>=d&&c.createdAt<d+DAY).length);
+  const last7=perDay.slice(7).reduce((a,b)=>a+b,0), prev7=perDay.slice(0,7).reduce((a,b)=>a+b,0);
+  const active7=new Set([...S.messages,...S.blogs,...S.comments].filter(x=>x.createdAt>now-7*DAY).map(x=>x.author)).size;
+  const joins=Object.values(S.apps).filter(a=>M.status[a.id]?.state==="admitted"&&a.createdAt>now-30*DAY).length;
+  const items=[...S.messages,...S.blogs]; const reactions=items.reduce((a,x)=>a+likesOf(x.id),0);
+  const er=items.length?Math.round(reactions/items.length/Math.max(1,M.members.size)*1000)/10:0;
+  const delta=(a,b)=>{ if(!b) return a?h("span",{class:"delta up"},"новое"):""; const d=Math.round((a-b)/b*100); return h("span",{class:"delta "+(d>=0?"up":"down")},(d>=0?"+":"")+d+"% к прошлой неделе"); };
+  // chart
+  const W=640,H=180,pad={l:28,r:8,t:10,b:24}, max=Math.max(4,...perDay), step=Math.ceil(max/4), top=step*4;
+  const bw=(W-pad.l-pad.r)/14;
+  const chart=s("svg",{viewBox:`0 0 ${W} ${H}`,width:"100%",role:"img","aria-label":"Активность по дням за 14 дней"},
+    ...[0,1,2,3,4].map(i=>{ const y=pad.t+(H-pad.t-pad.b)*(1-i/4); return [s("line",{x1:pad.l,x2:W-pad.r,y1:y,y2:y,stroke:"var(--line)","stroke-width":1}),s("text",{x:pad.l-6,y:y+4,"text-anchor":"end","font-size":10},i*step)]; }).flat(),
+    ...perDay.map((v,i)=>{ const hgt=(H-pad.t-pad.b)*v/top, x=pad.l+i*bw+3, y=H-pad.b-hgt;
+      return [s("rect",{x,y,width:bw-6,height:Math.max(0,hgt),rx:3,fill:i===13?"var(--accent)":"var(--accent-soft)"},s("title",{},new Date(days[i]).toLocaleDateString("ru")+": "+v)),
+        i%2===1?s("text",{x:x+(bw-6)/2,y:H-8,"text-anchor":"middle","font-size":10},new Date(days[i]).toLocaleDateString("ru",{day:"numeric",month:"numeric"})):null]; }).flat().filter(Boolean));
+  // tags
+  const tagCount={}; [...S.messages.map(m=>autoTag(m.text)),...S.blogs.map(b=>autoTag(b.title,b.text))].flat().forEach(t=>tagCount[t]=(tagCount[t]||0)+1);
+  const topTags=Object.entries(tagCount).sort((a,b)=>b[1]-a[1]).slice(0,8); const tmax=topTags[0]?.[1]||1;
+  // channels
+  const chRows=channels().map(c=>{ const ms=S.messages.filter(m=>m.channel===c.id); return {c,n:ms.length,n7:ms.filter(m=>m.createdAt>now-7*DAY).length,a:new Set(ms.map(m=>m.author)).size,last:ms.reduce((x,m)=>Math.max(x,m.createdAt),0),er:ms.length?Math.round(ms.reduce((x,m)=>x+likesOf(m.id),0)/ms.length*10)/10:0}; }).sort((a,b)=>b.n7-a.n7);
+  // authors
+  const auth={}; [...S.messages,...S.blogs,...S.comments].filter(x=>x.createdAt>now-30*DAY).forEach(x=>auth[x.author]=(auth[x.author]||0)+1);
+  const topAuth=Object.entries(auth).sort((a,b)=>b[1]-a[1]).slice(0,6);
+  const topPosts=[...S.blogs].sort((a,b)=>likesOf(b.id)-likesOf(a.id)).slice(0,5);
+  return h("div",{class:"stack"},
+    h("div",{class:"row"},h("h2",{class:"sec-title grow"},"Аналитика сообщества"),h("span",{class:"small muted"},"Считается по сообщениям, блогам и комментариям, обновляется вживую")),
+    h("div",{class:"kpis"},
+      h("div",{class:"card kpi"},h("span",{},"Участников"),h("b",{},M.members.size),h("span",{class:"delta up"},joins?"+"+joins+" за 30 дней":"")),
+      h("div",{class:"card kpi"},h("span",{},"Публикаций за 7 дней"),h("b",{},last7),delta(last7,prev7)),
+      h("div",{class:"card kpi"},h("span",{},"Активных авторов за 7 дней"),h("b",{},active7),h("span",{},M.members.size?Math.round(active7/M.members.size*100)+"% участников":"")),
+      h("div",{class:"card kpi"},h("span",{},"Вовлечённость (ER)"),h("b",{},er+"%"),h("span",{},"реакций на публикацию к числу участников"))),
+    h("div",{class:"layout"},
+      h("div",{class:"col"},
+        h("div",{class:"card stack"},h("div",{class:"eyebrow"},"Публикации по дням, 14 дней"),chart),
+        h("div",{class:"card stack"},h("div",{class:"eyebrow"},"Каналы"),h("div",{class:"tbl"},h("table",{},
+          h("thead",{},h("tr",{},h("th",{},"Канал"),h("th",{style:"text-align:right"},"Всего"),h("th",{style:"text-align:right"},"За 7 дн."),h("th",{style:"text-align:right"},"Авторов"),h("th",{style:"text-align:right"},"Реакций на сообщ."),h("th",{},"Последнее"))),
+          h("tbody",{},...chRows.map(r=>h("tr",{},h("td",{},"# "+r.c.name),h("td",{class:"n"},r.n),h("td",{class:"n"},r.n7),h("td",{class:"n"},r.a),h("td",{class:"n"},r.er),h("td",{class:"muted"},r.last?ago(r.last):"—"))))))),
+        h("div",{class:"card stack"},h("div",{class:"eyebrow"},"Популярные записи блогов"),topPosts.length?topPosts.map(b=>h("div",{class:"row small"},h("span",{class:"grow"},b.title),h("span",{class:"muted"},"♥ "+likesOf(b.id)))):h("span",{class:"small muted"},"Пока нет записей."))),
+      h("div",{class:"col"},
+        h("div",{class:"card stack"},h("div",{class:"eyebrow"},"Темы (автотеги)"),topTags.length?topTags.map(([t,n])=>h("div",{class:"hbar"},h("button",{class:"btn ghost",style:"padding:0;text-align:left;color:var(--ink)",onclick:()=>openTag(t)},"#"+TAG[t].label),h("div",{class:"track"},h("div",{class:"fill",style:"width:"+(n/tmax*100)+"%"})),h("span",{class:"v"},n))):h("span",{class:"small muted"},"Темы появятся с первыми сообщениями.")),
+        h("div",{class:"card stack"},h("div",{class:"eyebrow"},"Самые активные за 30 дней"),topAuth.length?topAuth.map(([id,n])=>h("div",{class:"row small"},avatarEl(id,"sm"),h("span",{class:"grow"},displayName(id)),h("span",{class:"reg"},n))):h("span",{class:"small muted"},"Пока никого."))))
+  );
+}
+
+/* ================= initiatives ================= */
+function tallyInit(i){ let y=0,n=0,a=0; for(const m of M.members){ const v=S.ballots[m]?.votes?.[i.id]; if(v==="for")y++; else if(v==="against")n++; else if(v==="abstain")a++; } return {y,n,a,total:y+n+a}; }
+function regNo(i){ const sorted=[...S.inits].sort((a,b)=>a.createdAt-b.createdAt); return "РВИ-"+new Date(i.createdAt).getFullYear()+"-"+String(sorted.indexOf(i)+1).padStart(3,"0"); }
+function renderInits(){
+  const left=h("div",{class:"col"});
+  if(S.isAdmin) left.append(initForm()); else left.append(h("div",{class:"card flat small"},"Идеи и законопроекты выносят администраторы. Хотите предложить своё — напишите в #господдержка или в блог, администратор может вынести это на голосование."));
+  if(!S.inits.length) left.append(h("div",{class:"card empty"},h("h3",{},"На согласовании пока ничего нет")));
+  const order={voting:0,accepted:1,rejected:2,withdrawn:3};
+  [...S.inits].sort((a,b)=>(order[a.status]??9)-(order[b.status]??9)||b.createdAt-a.createdAt).forEach(i=>left.append(initCard(i)));
+  const rail=h("div",{class:"col"},h("div",{class:"card stack small"},h("div",{class:"eyebrow"},"Как принимаются решения"),
+    h("div",{},"Голосуют все принятые участники: за, против или воздержаться."),h("div",{},"Решение принято, если набран кворум и доля «за» среди голосов «за» и «против» не ниже порога."),h("div",{},"Итоги подводит администратор после окончания срока.")));
+  return h("div",{class:"layout"},left,rail);
+}
+function initForm(){
+  const d=S.initDraft||{};
+  const det=h("details",{class:"card",open:!!S.initDraft},h("summary",{style:"cursor:pointer;font-weight:600"},"Вынести на согласование"));
+  const f=h("form",{class:"stack",style:"margin-top:12px"},
+    h("div",{class:"grid2"},h("label",{},"Тип",h("select",{id:"i-kind"},h("option",{value:"idea"},"Идея"),h("option",{value:"law"},"Законопроект"))),
+      h("label",{},"Срок голосования",h("select",{id:"i-days"},h("option",{value:3},"3 дня"),h("option",{value:7,selected:true},"7 дней"),h("option",{value:14},"14 дней")))),
+    h("label",{},"Название",h("input",{type:"text",id:"i-title",maxlength:140,value:d.title||""})),
+    h("label",{},"Суть в двух предложениях",h("textarea",{id:"i-summary",maxlength:800,style:"min-height:70px"},d.summary||"")),
+    h("label",{},"Текст статей (для законопроекта)",h("textarea",{id:"i-body",maxlength:6000,placeholder:"Статья 1. …"})),
+    h("div",{class:"grid2"},h("label",{},"Порог",h("select",{id:"i-th"},h("option",{value:"0.5"},"Простое большинство"),h("option",{value:"0.667"},"Две трети"))),
+      h("label",{},"Кворум, голосов",h("input",{type:"number",id:"i-quorum",min:1,value:String(Math.max(1,Math.ceil(M.members.size/2)))}))),
+    h("div",{},h("button",{class:"btn primary",type:"submit"},"Открыть голосование")));
+  f.addEventListener("submit",e=>{e.preventDefault(); const v=id=>f.querySelector("#"+id).value.trim();
+    const data={kind:v("i-kind"),title:v("i-title"),summary:v("i-summary"),body:v("i-body"),threshold:parseFloat(v("i-th")),quorum:Math.max(1,parseInt(v("i-quorum"),10)||1),author:S.uid,createdAt:Date.now(),deadline:Date.now()+parseInt(v("i-days"),10)*864e5,status:"voting"};
+    if(!data.title||!data.summary) return toast("Нужны название и суть.");
+    guard(async()=>{ await S.db.collection("initiatives").add(data); S.initDraft=null; ["i-title","i-summary","i-body"].forEach(id=>{const el=document.getElementById(id); if(el) el.value="";}); toast("Голосование открыто"); });});
+  det.append(f); return det;
+}
+function initCard(i){
+  const t=tallyInit(i), decided=t.y+t.n, passes=t.total>=i.quorum&&decided&&t.y/decided>=i.threshold;
+  const my=S.ballots[S.uid]?.votes?.[i.id], voting=i.status==="voting", expired=voting&&Date.now()>i.deadline, can=voting&&!expired&&S.canWrite;
+  const fin=i.final||t, tot=Math.max(1,fin.y+fin.n+fin.a), left=Math.ceil((i.deadline-Date.now())/864e5);
+  const status=i.status==="accepted"?h("span",{class:"chip yes"},"Принято"):i.status==="rejected"?h("span",{class:"chip no"},i.reason==="quorum"?"Нет кворума":"Отклонено"):i.status==="withdrawn"?h("span",{class:"chip"},"Снято"):expired?h("span",{class:"chip admin"},"Ждёт итогов"):h("span",{class:"chip live"},left>1?"Голосование · ещё "+plural(left,"день","дня","дней"):"Последний день");
+  const vote=v=>writeBallot(b=>{ if(b.votes[i.id]===v) delete b.votes[i.id]; else b.votes[i.id]=v; });
+  const k="init:"+i.id, cs=S.comments.filter(c=>c.target===k);
+  return h("article",{class:"card init stack"},
+    h("div",{class:"row"},h("span",{class:"reg"},regNo(i)),h("span",{class:"chip"+(i.kind==="law"?" law":"")},i.kind==="law"?"Законопроект":"Идея"),h("div",{class:"grow"}),status),
+    h("h3",{},i.title),h("div",{class:"body-text"},i.summary),tagChips(autoTag(i.title,i.summary,i.body)),
+    i.body?h("div",{class:"articles"},i.body):"",
+    h("div",{class:"bar",role:"img","aria-label":"За "+fin.y+", против "+fin.n+", воздержались "+fin.a},h("span",{class:"y",style:"width:"+fin.y/tot*100+"%"}),h("span",{class:"n",style:"width:"+fin.n/tot*100+"%"}),h("span",{class:"a",style:"width:"+fin.a/tot*100+"%"})),
+    h("div",{class:"tally-nums"},h("span",{},h("i",{class:"dot",style:"background:var(--yes)"}),"За ",h("b",{},fin.y)),h("span",{},h("i",{class:"dot",style:"background:var(--no)"}),"Против ",h("b",{},fin.n)),h("span",{},h("i",{class:"dot",style:"background:var(--abst)"}),"Воздержались ",h("b",{},fin.a)),h("span",{class:"muted"},"Кворум "+(fin.y+fin.n+fin.a)+"/"+i.quorum),h("span",{class:"muted"},"Порог "+(i.threshold>0.6?"⅔":"½"))),
+    voting?h("div",{class:"row"},h("button",{class:"btn"+(my==="for"?" sel-yes":""),disabled:!can,onclick:()=>vote("for")},"За"),h("button",{class:"btn"+(my==="against"?" sel-no":""),disabled:!can,onclick:()=>vote("against")},"Против"),h("button",{class:"btn"+(my==="abstain"?" sel-abst":""),disabled:!can,onclick:()=>vote("abstain")},"Воздержаться")):"",
+    h("div",{class:"actions"},
+      h("button",{class:"btn ghost",onclick:()=>{S.openComments.has(k)?S.openComments.delete(k):S.openComments.add(k);render();}},"Обсуждение"+(cs.length?" · "+cs.length:"")),
+      S.isAdmin&&voting?h("button",{class:"btn ghost",style:"color:var(--admin)",onclick:()=>guard(()=>S.db.doc("initiatives/"+i.id).update({status:passes?"accepted":"rejected",reason:t.total>=i.quorum?null:"quorum",closedAt:Date.now(),final:{y:t.y,n:t.n,a:t.a}}))},"Подвести итоги"):"",
+      S.isAdmin&&voting?h("button",{class:"btn ghost",onclick:()=>guard(()=>S.db.doc("initiatives/"+i.id).update({status:"withdrawn",closedAt:Date.now(),final:{y:t.y,n:t.n,a:t.a}}))},"Снять"):"",
+      S.isAdmin?h("button",{class:"btn ghost danger",onclick:e=>confirmInline(e.currentTarget,"Удалить?",()=>guard(()=>S.db.doc("initiatives/"+i.id).delete()))},"Удалить"):"",
+      h("span",{class:"small muted",style:"margin-left:auto;align-self:center"},"Вынес "+displayName(i.author)+", "+ago(i.createdAt))),
+    S.openComments.has(k)?commentsBlock(k,cs):"");
+}
+
+/* ================= applications ================= */
+function renderApps(){
+  const out=h("div",{class:"stack"},h("h2",{class:"sec-title"},"Заявки на вступление"),h("div",{class:"card flat small"},"Сообщество закрытое: участники решают, кого впустить. Для допуска нужно "+plural(M.need,"голос","голоса","голосов")+" «за», и «за» больше, чем «против». Проверьте, что человек действительно работает в индустрии."));
+  const order={pending:0,rejected:1,admitted:2};
+  const apps=Object.entries(S.apps).map(([id,a])=>({...a,id,st:M.status[id]})).filter(a=>a.st&&a.st.state!=="admitted").sort((a,b)=>order[a.st.state]-order[b.st.state]||b.createdAt-a.createdAt);
+  if(!apps.length) out.append(h("div",{class:"card empty"},h("h3",{},"Новых заявок нет")));
+  for(const a of apps){ const st=a.st, my=S.ballots[S.uid]?.apps?.[a.id], open=st.state==="pending";
+    const vote=v=>writeBallot(b=>{ if(b.apps[a.id]===v) delete b.apps[a.id]; else b.apps[a.id]=v; });
+    out.append(h("article",{class:"card stack"},
+      h("div",{class:"post-head"},avatarEl(a.id),h("div",{class:"grow"},h("div",{class:"name"},a.name),h("div",{class:"small muted"},[a.role,a.org,a.years?plural(a.years,"год","года","лет")+" в индустрии":"","подана "+ago(a.createdAt)].filter(Boolean).join(" · "))),
+        st.state==="rejected"?h("span",{class:"chip no"},"Отклонён"):h("span",{class:"chip live"},"На голосовании")),
+      h("div",{class:"body-text"},a.about),a.links?h("div",{class:"small"},"Работы: ",a.links):"",tagChips(autoTag(a.role,a.about)),
+      h("div",{class:"tally-nums"},h("span",{},h("i",{class:"dot",style:"background:var(--yes)"}),"За ",h("b",{},st.y)," из "+st.req),h("span",{},h("i",{class:"dot",style:"background:var(--no)"}),"Против ",h("b",{},st.n))),
+      h("div",{class:"row"},h("button",{class:"btn"+(my==="for"?" sel-yes":""),disabled:!open||!S.canWrite,onclick:()=>vote("for")},"Принять"),h("button",{class:"btn"+(my==="against"?" sel-no":""),disabled:!open||!S.canWrite,onclick:()=>vote("against")},"Отклонить"),
+        S.isAdmin?h("button",{class:"btn ghost danger",style:"margin-left:auto",onclick:e=>confirmInline(e.currentTarget,"Удалить заявку?",()=>guard(()=>S.db.doc("applications/"+a.id).delete()))},"Удалить"):"")));
+  }
+  return out;
+}
+
+/* ================= boot ================= */
+let qTimer;
+document.getElementById("q").addEventListener("input",e=>{ clearTimeout(qTimer); qTimer=setTimeout(()=>{ S.q=e.target.value; S.qType="all"; render(); },200); });
+async function boot(){
+  try{ const t=localStorage.getItem("rvi-tab"); if(t) S.tab=t; }catch(e){}
+  if(!window.claude?.use){ S.offline=true; render(); return; }
+  const [db,user]=await Promise.all([window.claude.use("db"),window.claude.use("user")]);
+  S.db=db; S.user=user; if(!db){ S.offline=true; render(); return; }
+  const me=user?await user.me():null; S.uid=me?.id||null; S.isAdmin=!!me?.canEdit;
+  const cw=user?await user.can("data.write"):null; S.canWrite=cw!==false;
+  const need=["channels","messages","blogs","comments","inits","ballots","apps","staff","profiles"];
+  const timer=setTimeout(()=>{S.stale=true;render();},10000);
+  let pending=false; const schedule=()=>{ if(pending) return; pending=true; requestAnimationFrame(()=>{pending=false;render();}); };
+  const done=(k,snap)=>{ if(!snap.metadata.fromCache) S.loaded[k]=true; if(need.every(n=>S.loaded[n])){ clearTimeout(timer); S.stale=false; if(!S.ready){ S.ready=true; registerStaff(); } } schedule(); };
+  const fail=k=>e=>{ if(e.code!=="revoked") toast("Часть данных не загрузилась."); done(k,{metadata:{fromCache:false}}); };
+  const list=s=>s.docs.map(d=>({...d.data(),id:d.id})); const map=s=>Object.fromEntries(s.docs.map(d=>[d.id,{...d.data(),id:d.id}]));
+  db.collection("channels").onSnapshot(s=>{S.channels=list(s);done("channels",s);},fail("channels"));
+  db.collection("messages").orderBy("createdAt","desc").limit(1000).onSnapshot(s=>{S.messages=list(s);done("messages",s);},fail("messages"));
+  db.collection("blogs").orderBy("createdAt","desc").limit(300).onSnapshot(s=>{S.blogs=list(s);done("blogs",s);},fail("blogs"));
+  db.collection("comments").orderBy("createdAt","asc").limit(1000).onSnapshot(s=>{S.comments=list(s);done("comments",s);},fail("comments"));
+  db.collection("initiatives").onSnapshot(s=>{S.inits=list(s);done("inits",s);},fail("inits"));
+  db.collection("ballots").onSnapshot(s=>{S.ballots=map(s);done("ballots",s);},fail("ballots"));
+  db.collection("applications").onSnapshot(s=>{S.apps=map(s);done("apps",s);},fail("apps"));
+  db.collection("staff").onSnapshot(s=>{S.staff=map(s);done("staff",s);},fail("staff"));
+  db.collection("profiles").onSnapshot(s=>{S.profiles=map(s);done("profiles",s);},fail("profiles"));
+}
+async function registerStaff(){ if(!S.isAdmin||!S.uid||S.staff[S.uid]) return; try{ await S.db.doc("staff/"+S.uid).set({since:Date.now()}); }catch(e){} }
+setInterval(()=>{ if(S.ready&&!document.hidden) render(); },60000);
+boot();
+})();
+</script>
+
+</body>
+</html>

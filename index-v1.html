@@ -1,0 +1,650 @@
+<!doctype html>
+<html lang="ru">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover">
+<style>:root{color-scheme:light;padding-top:env(safe-area-inset-top);padding-bottom:env(safe-area-inset-bottom)}body{margin:0;font:14px system-ui,sans-serif}img{max-width:100%}[hidden]{display:none!important}</style>
+</head>
+<body>
+<title>Сообщество РВИ</title>
+<meta name="claude:viewport-fit-sides" content="cover">
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Unbounded:wght@500;700&family=Inter:wght@400;500;600&family=JetBrains+Mono:wght@500&display=swap">
+<style>
+/* Layout: sticky header with tabs; main column + right rail (charter, stats) that stacks under 900px. */
+:root{
+  /* Single dark look: slate grey ground, lime signal accent, dark grey instead of black. */
+  --bg:#222A38; --surface:#2A3344; --surface-2:#323C4F; --line:#3E4A60;
+  --ink:#EEF1F6; --muted:#A3ADBF; --accent:#D8FB4E; --accent-ink:#222A38; --accent-soft:#3B4632;
+  --admin:#F2B45A; --admin-soft:#4A3A22;
+  --yes:#5FD48F; --yes-soft:#22413A; --no:#FF7A6E; --no-soft:#4A2C30; --abst:#7D879B;
+  --display:"Unbounded","Inter",system-ui,sans-serif;
+  --body:"Inter",system-ui,-apple-system,"Segoe UI",Roboto,sans-serif;
+  --mono:"JetBrains Mono",ui-monospace,Consolas,monospace;
+  --r:10px; color-scheme:dark;
+}
+a{color:var(--accent)}
+
+*{box-sizing:border-box}
+body{background:var(--bg);color:var(--ink);font-family:var(--body);font-size:15px;line-height:1.5}
+body::before{content:"";position:fixed;inset:0 0 auto;height:env(safe-area-inset-top,0px);z-index:10;background:var(--surface)}
+button,input,textarea,select{font:inherit;color:inherit}
+button{cursor:pointer}
+:focus-visible{outline:2px solid var(--accent);outline-offset:2px}
+h1,h2,h3{font-family:var(--display);font-weight:700;text-wrap:balance;margin:0;letter-spacing:-.01em}
+
+.top{position:sticky;top:env(safe-area-inset-top,0px);z-index:5;background:var(--surface);border-bottom:1px solid var(--line)}
+.wrap{max-width:none;margin:0;padding-left:max(24px,env(safe-area-inset-left,0px));padding-right:max(24px,env(safe-area-inset-right,0px))}
+.topbar{display:flex;align-items:center;gap:16px;padding-block:12px;flex-wrap:wrap}
+.brand{display:flex;align-items:center;gap:10px;margin-right:auto}
+.mark{width:42px;height:42px;border-radius:50%;background:var(--accent-ink);border:6px solid var(--accent);color:var(--accent);display:grid;place-items:center;font-family:var(--display);font-size:9px;font-weight:700;flex:none}
+.brand h1{font-size:17px}
+.brand small{display:block;color:var(--muted);font-size:12px;font-family:var(--body);font-weight:400;letter-spacing:0}
+.who{display:flex;align-items:center;gap:8px;font-size:13px;color:var(--muted)}
+.who img{width:28px;height:28px;border-radius:50%}
+.tabs{display:flex;gap:4px;overflow-x:auto;padding-bottom:0}
+.tab{border:0;background:none;padding:10px 14px;border-bottom:2px solid transparent;color:var(--muted);font-weight:600;white-space:nowrap;display:flex;gap:6px;align-items:center}
+.tab[aria-selected="true"]{color:var(--ink);border-color:var(--accent)}
+.count{font-family:var(--mono);font-size:11px;background:var(--accent-soft);color:var(--accent);border-radius:999px;padding:1px 7px}
+
+.layout{display:grid;grid-template-columns:minmax(0,1.85fr) minmax(320px,1fr);gap:24px;padding-block:24px 48px}
+@media (max-width:900px){.layout{grid-template-columns:minmax(0,1fr)}}
+.col{display:flex;flex-direction:column;gap:16px;min-width:0}
+
+.card{background:var(--surface);border:1px solid var(--line);border-radius:var(--r);padding:18px;min-width:0}
+.card.flat{background:var(--surface-2)}
+.eyebrow{font-size:11px;letter-spacing:.08em;text-transform:uppercase;color:var(--muted);font-weight:600}
+.muted{color:var(--muted)}
+.small{font-size:13px}
+.row{display:flex;gap:10px;align-items:center;flex-wrap:wrap}
+.stack{display:flex;flex-direction:column;gap:10px}
+.grow{flex:1 1 auto;min-width:0}
+
+.btn{border:1px solid var(--line);background:var(--surface);border-radius:8px;padding:8px 14px;font-weight:600;font-size:14px}
+.btn:hover{border-color:var(--accent)}
+.btn.primary{background:var(--accent);border-color:var(--accent);color:var(--accent-ink)}
+.btn.ghost{border-color:transparent;background:none;color:var(--muted);padding:6px 8px}
+.btn.ghost:hover{color:var(--ink)}
+.btn.danger{color:var(--no)}
+.btn:disabled{opacity:.5;cursor:not-allowed}
+.btn.sel-yes{background:var(--yes-soft);border-color:var(--yes);color:var(--yes)}
+.btn.sel-no{background:var(--no-soft);border-color:var(--no);color:var(--no)}
+.btn.sel-abst{background:var(--surface-2);border-color:var(--abst)}
+
+label{font-size:13px;font-weight:600;display:flex;flex-direction:column;gap:5px}
+input[type=text],textarea,select{width:100%;border:1px solid var(--line);border-radius:8px;background:var(--surface);padding:9px 11px;font-weight:400}
+textarea{resize:vertical;min-height:84px}
+.grid2{display:grid;grid-template-columns:1fr 1fr;gap:12px}
+@media (max-width:560px){.grid2{grid-template-columns:1fr}}
+
+.chip{display:inline-flex;align-items:center;gap:5px;font-size:12px;font-weight:600;border-radius:999px;padding:2px 9px;background:var(--surface-2);color:var(--muted);border:1px solid var(--line)}
+.chip.admin{background:var(--admin-soft);color:var(--admin);border-color:transparent}
+.chip.law{background:var(--accent-soft);color:var(--accent);border-color:transparent}
+.chip.yes{background:var(--yes-soft);color:var(--yes);border-color:transparent}
+.chip.no{background:var(--no-soft);color:var(--no);border-color:transparent}
+.chip.live{background:var(--accent);color:var(--accent-ink);border-color:transparent}
+
+.post-head{display:flex;gap:10px;align-items:center}
+.avatar{width:36px;height:36px;border-radius:50%;flex:none;background:var(--surface-2)}
+.name{font-weight:600}
+.post-body{white-space:pre-wrap;word-wrap:break-word;margin:10px 0 6px;max-width:68ch}
+.actions{display:flex;gap:4px;flex-wrap:wrap;margin-left:-8px}
+.comments{border-top:1px solid var(--line);margin-top:10px;padding-top:10px;display:flex;flex-direction:column;gap:10px}
+.comment{display:flex;gap:8px}
+.comment .avatar{width:26px;height:26px}
+.comment p{margin:2px 0 0;white-space:pre-wrap;word-wrap:break-word}
+.composer-kinds{display:flex;gap:6px;flex-wrap:wrap}
+.kind{border:1px solid var(--line);background:var(--surface);border-radius:999px;padding:4px 12px;font-size:13px;font-weight:600;color:var(--muted)}
+.kind[aria-pressed="true"]{background:var(--ink);color:var(--surface);border-color:var(--ink)}
+
+.reg{font-family:var(--mono);font-size:12px;color:var(--muted);font-variant-numeric:tabular-nums}
+.init h3{font-size:18px;margin:6px 0}
+.init .summary{margin:0 0 10px;max-width:68ch}
+.articles{background:var(--surface-2);border-radius:8px;padding:12px 14px;white-space:pre-wrap;font-size:14px;max-width:72ch;margin-bottom:12px}
+.tally{display:flex;flex-direction:column;gap:6px;margin:8px 0 12px}
+.bar{position:relative;height:12px;border-radius:6px;background:var(--surface-2);overflow:visible;display:flex}
+.bar span{height:100%}
+.bar .y{background:var(--yes);border-radius:6px 0 0 6px}
+.bar .n{background:var(--no)}
+.bar .a{background:var(--abst);border-radius:0 6px 6px 0}
+.bar .th{position:absolute;top:-4px;bottom:-4px;width:2px;background:var(--ink)}
+.tally-nums{display:flex;gap:14px;flex-wrap:wrap;font-size:13px;font-variant-numeric:tabular-nums}
+.dot{display:inline-block;width:8px;height:8px;border-radius:50%;margin-right:5px}
+
+.notice{border-radius:var(--r);padding:12px 14px;background:var(--accent-soft);color:var(--ink);font-size:14px}
+.notice.warn{background:var(--admin-soft)}
+.empty{text-align:center;padding:36px 18px;color:var(--muted)}
+.empty h3{font-size:16px;color:var(--ink);margin-bottom:6px}
+
+.charter ol{margin:8px 0 0;padding-left:20px;display:flex;flex-direction:column;gap:6px;font-size:14px}
+.stats{display:grid;grid-template-columns:1fr 1fr;gap:10px}
+.stat b{display:block;font-family:var(--display);font-size:22px;font-variant-numeric:tabular-nums}
+.stat span{font-size:12px;color:var(--muted)}
+
+.gate{max-width:680px;margin:0 auto}
+.gate h2{font-size:26px;margin-bottom:8px}
+.steps{display:grid;grid-template-columns:repeat(3,1fr);gap:10px;margin:16px 0}
+@media (max-width:560px){.steps{grid-template-columns:1fr}}
+.step{background:var(--surface-2);border-radius:8px;padding:12px;font-size:13px}
+.step b{display:block;font-family:var(--display);font-size:13px;margin-bottom:4px}
+.app-meta{display:flex;gap:6px 14px;flex-wrap:wrap;font-size:13px;color:var(--muted)}
+.toast{position:fixed;left:50%;bottom:calc(20px + env(safe-area-inset-bottom,0px));transform:translateX(-50%);background:var(--ink);color:var(--surface);padding:10px 16px;border-radius:8px;font-size:14px;z-index:20;max-width:calc(100% - 32px)}
+@media (prefers-reduced-motion:no-preference){.card{transition:border-color .15s}}
+</style>
+
+<header class="top">
+  <div class="wrap">
+    <div class="topbar">
+      <div class="brand"><div class="mark">РВИ</div><div><h1>Сообщество РВИ</h1><small>Организация развития видеоигровой индустрии</small></div></div>
+      <div class="who" id="who"></div>
+    </div>
+    <nav class="tabs" id="tabs" role="tablist"></nav>
+  </div>
+</header>
+<main class="wrap"><div class="layout"><div class="col" id="main"><div class="card empty"><h3>Загружаем сообщество…</h3><p>Лента мнений, инициативы и заявки на вступление появятся через секунду.</p></div></div><aside class="col" id="rail"></aside></div></main>
+<div class="toast" id="toast" hidden></div>
+
+<!-- ===== Локальный демо-режим: включается, только если страница открыта вне claude.ai ===== -->
+<style>
+.demo{background:var(--accent-soft);border-bottom:1px solid var(--line);font-size:13px}
+.demo .wrap{display:flex;gap:8px 12px;align-items:center;flex-wrap:wrap;padding-block:8px}
+.demo b{color:var(--accent);font-family:var(--display);font-size:11px;letter-spacing:.06em;text-transform:uppercase}
+.demo select{width:auto;padding:4px 8px;font-size:13px}
+.demo .btn{padding:4px 10px;font-size:13px}
+</style>
+<script>
+(() => {
+if (window.claude) return; // на claude.ai работает настоящее хранилище
+const KEY_DB="rvi-demo-db", KEY_P="rvi-demo-people", KEY_ME="rvi-demo-me";
+const ls = {get(k){try{return JSON.parse(localStorage.getItem(k))}catch(e){return null}}, set(k,v){try{localStorage.setItem(k,JSON.stringify(v))}catch(e){}}};
+const H=3600e3, D=24*H, now=Date.now();
+
+function seed(){
+  const people=[
+    {id:"u_irina",name:"Ирина Ковалёва",admin:true},
+    {id:"u_oleg",name:"Олег Петров"},
+    {id:"u_maria",name:"Мария Лебедева"},
+    {id:"u_denis",name:"Денис Орлов"},
+    {id:"u_guest",name:"Новый гость"}];
+  const db={
+    staff:{u_irina:{since:now-30*D}},
+    applications:{
+      u_oleg:{name:"Олег Петров",org:"Pixel Forge",role:"Геймдизайнер",about:"10 лет в мобильных играх. Хочу, чтобы маленьким студиям было проще получать господдержку.",links:"",createdAt:now-20*D},
+      u_maria:{name:"Мария Лебедева",org:"Фриланс",role:"Художник",about:"Концепт-арт и UI. Интересуют кадры и образование в геймдеве.",links:"",createdAt:now-15*D},
+      u_denis:{name:"Денис Орлов",org:"Север Геймз",role:"Продюсер",about:"Выпустили две инди-игры в Steam. Хочу участвовать в обсуждении реестра студий и маркировки игр.",links:"https://example.com",createdAt:now-6*H}},
+    ballots:{
+      u_irina:{apps:{u_oleg:"for",u_maria:"for",u_denis:"for"},votes:{i_law:"for",i_idea:"for"},likes:{p1:true}},
+      u_oleg:{apps:{u_maria:"for"},votes:{i_law:"against",i_idea:"for"},likes:{p2:true}},
+      u_maria:{apps:{},votes:{i_idea:"for"},likes:{p1:true,p3:true}}},
+    posts:{
+      p1:{author:"u_oleg",kind:"proposal",text:"Предлагаю ввести упрощённую грантовую заявку для студий до 10 человек: одна страница вместо сорока.",createdAt:now-3*H},
+      p2:{author:"u_maria",kind:"opinion",text:"Художникам не хватает стажировок. Студиям выгодно брать стажёров, если часть затрат компенсирует государство.",createdAt:now-9*H},
+      p3:{author:"u_irina",kind:"question",text:"Какие темы вынести на голосование в следующем месяце? Пишите в комментариях.",createdAt:now-26*H}},
+    comments:{
+      c1:{target:"post:p1",author:"u_maria",text:"Поддерживаю, особенно для первой заявки.",createdAt:now-2*H},
+      c2:{target:"init:i_law",author:"u_oleg",text:"Квота нужна, но 30% слишком много на старте.",createdAt:now-20*H}},
+    initiatives:{
+      i_law:{kind:"law",title:"О квоте отечественных игр в киберспортивных турнирах",summary:"Турниры с господдержкой включают в программу отечественные дисциплины. Доля растёт постепенно, начиная с 2027 года.",
+        body:"Статья 1. Турниры, получающие государственное финансирование, включают не менее 30% дисциплин по играм отечественной разработки.\nСтатья 2. Требование вступает в силу с 1 января 2027 года.",
+        threshold:0.667,quorum:3,author:"u_irina",createdAt:now-2*D,deadline:now+5*D,status:"voting",sourcePost:null},
+      i_idea:{kind:"idea",title:"Открытый реестр видеоигровых студий",summary:"Публичный список студий с контактами, чтобы издателям и инвесторам было проще находить команды.",body:"",
+        threshold:0.5,quorum:2,author:"u_irina",createdAt:now-12*D,deadline:now-5*D,status:"accepted",closedAt:now-5*D,final:{y:3,n:0,a:0},sourcePost:null}}
+  };
+  ls.set(KEY_P,people); ls.set(KEY_DB,db); ls.set(KEY_ME,"u_irina");
+}
+if (!ls.get(KEY_DB) || !ls.get(KEY_P)) seed();
+
+let store = ls.get(KEY_DB);
+const people = ls.get(KEY_P);
+const meId = ls.get(KEY_ME) || people[0].id;
+const me = people.find(p=>p.id===meId) || people[0];
+const listeners = new Set();
+const clone = o => JSON.parse(JSON.stringify(o));
+function save(){ ls.set(KEY_DB,store); emit(); }
+function emit(){ for (const l of listeners) l.fire(); }
+window.addEventListener("storage", e=>{ if(e.key===KEY_DB){ store=ls.get(KEY_DB)||store; emit(); } });
+
+const META={fromCache:false,hasPendingWrites:false};
+const snapDoc=(id,data)=>({id,exists:!!data,data:()=>data?clone(data):undefined,metadata:META});
+function deny(){ return Promise.reject({code:"invalid_argument",message:"Недостаточно прав в демо"}); }
+function allowed(coll,id){
+  if (coll==="staff"||coll==="initiatives") return !!me.admin;
+  if (coll==="ballots") return id===me.id;
+  if (coll==="applications") return id===me.id || !!me.admin;
+  return true;
+}
+let seq=0; const newId=()=>"d"+Date.now().toString(36)+(seq++).toString(36);
+
+function docRef(coll,id){
+  return { id, path:coll+"/"+id,
+    get:async()=>snapDoc(id,store[coll]?.[id]),
+    set:async d=>{ if(!allowed(coll,id)) return deny(); (store[coll]??={})[id]=clone(d); save(); },
+    update:async d=>{ if(!allowed(coll,id)) return deny(); if(!store[coll]?.[id]) return deny(); Object.assign(store[coll][id],clone(d)); save(); },
+    delete:async()=>{ if(!allowed(coll,id)&&!(coll!=="ballots"&&me.admin)) return deny(); if(store[coll]) delete store[coll][id]; save(); },
+    onSnapshot(next){ const l={fire:()=>next(snapDoc(id,store[coll]?.[id]))}; listeners.add(l); setTimeout(l.fire); return ()=>listeners.delete(l); } };
+}
+function query(coll,order,lim){
+  const run=()=>{ let docs=Object.entries(store[coll]||{}).map(([id,d])=>snapDoc(id,d));
+    if(order) docs.sort((a,b)=>{const x=a.data()[order.f],y=b.data()[order.f]; return (x>y?1:x<y?-1:0)*(order.d==="desc"?-1:1);});
+    if(lim) docs=docs.slice(0,lim);
+    return {docs,size:docs.length,empty:!docs.length,docChanges:()=>[],metadata:META}; };
+  return {
+    orderBy:(f,d)=>query(coll,{f,d},lim), limit:n=>query(coll,order,n), where:()=>query(coll,order,lim),
+    get:async()=>run(),
+    onSnapshot(next){ const l={fire:()=>next(run())}; listeners.add(l); setTimeout(l.fire); return ()=>listeners.delete(l); },
+    doc:id=>docRef(coll,id||newId()),
+    add:async d=>{ const r=docRef(coll,newId()); await r.set(d); return r; } };
+}
+const db={ collection:p=>query(p), doc:p=>{const [c,i]=p.split("/"); return docRef(c,i);} };
+
+const COLORS=["#D8FB4E","#7FD1F7","#F2B45A","#FF9AC1","#9BE3B5","#B9A6FF"];
+function avatar(name,i){ const ini=(name||"?").split(/\s+/).map(w=>w[0]).slice(0,2).join("").toUpperCase();
+  const svg=`<svg xmlns="http://www.w3.org/2000/svg" width="64" height="64"><rect width="64" height="64" rx="32" fill="${COLORS[i%COLORS.length]}"/><text x="32" y="41" font-family="Arial" font-size="24" font-weight="700" text-anchor="middle" fill="#222A38">${ini}</text></svg>`;
+  return "data:image/svg+xml,"+encodeURIComponent(svg); }
+function profile(id){ const i=people.findIndex(p=>p.id===id); const p=people[i];
+  const name=p?.name||store.applications?.[id]?.name||""; return {id,name,avatarUrl:avatar(name,Math.max(0,i)),color:COLORS[Math.max(0,i)%COLORS.length],email:null,isMe:id===me.id,guest:false}; }
+const user={
+  me:async()=>({...profile(me.id),isOwner:!!me.admin,canEdit:!!me.admin}),
+  id:async()=>me.id, isOwner:async()=>!!me.admin, canEdit:async()=>!!me.admin, can:async()=>true,
+  profiles:async ids=>Object.fromEntries([].concat(ids).map(id=>[id,profile(id)])) };
+
+window.claude={ use:async name=>{ await new Promise(r=>setTimeout(r,0)); return name==="db"?db:name==="user"?user:null; } };
+
+/* панель переключения ролей */
+function bar(){
+  const sel=document.createElement("select"); sel.id="demo-who"; sel.setAttribute("aria-label","Войти как");
+  for(const p of people){ const o=document.createElement("option"); o.value=p.id; o.textContent=p.name+(p.admin?" (админ)":""); o.selected=p.id===me.id; sel.append(o); }
+  sel.onchange=()=>{ ls.set(KEY_ME,sel.value); location.reload(); };
+  const add=document.createElement("button"); add.className="btn"; add.textContent="+ Новый гость";
+  add.onclick=()=>{ const n=people.filter(p=>p.id.startsWith("u_g")).length+1; const p={id:"u_g"+Date.now().toString(36),name:"Гость "+n}; people.push(p); ls.set(KEY_P,people); ls.set(KEY_ME,p.id); location.reload(); };
+  const reset=document.createElement("button"); reset.className="btn ghost"; reset.textContent="Сбросить демо";
+  let armed=false;
+  reset.onclick=()=>{ if(!armed){armed=true;reset.textContent="Точно сбросить? Нажмите ещё раз";setTimeout(()=>{armed=false;reset.textContent="Сбросить демо";},4000);return;}
+    try{[KEY_DB,KEY_P,KEY_ME].forEach(k=>localStorage.removeItem(k));}catch(e){} location.reload(); };
+  const box=document.createElement("div"); box.className="demo";
+  const w=document.createElement("div"); w.className="wrap";
+  const b=document.createElement("b"); b.textContent="Демо";
+  const t=document.createElement("span"); t.className="muted"; t.textContent="Данные примерные и хранятся только в этом браузере. Войти как:";
+  w.append(b,t,sel,add,reset); box.append(w);
+  document.body.prepend(box);
+}
+if (document.readyState==="loading") document.addEventListener("DOMContentLoaded",bar); else bar();
+})();
+</script>
+
+<script>
+(() => {
+"use strict";
+const S = {
+  db:null, user:null, me:null, uid:null, isAdmin:false, canWrite:true,
+  posts:[], comments:[], inits:[], ballots:{}, apps:{}, staff:{},
+  loaded:{}, stale:false, tab:"feed", openComments:new Set(), kind:"opinion",
+  initDraft:null, ready:false, offline:false
+};
+const REQ_MAX = 3;           // голосов «за», нужных для допуска (меньше, пока участников мало)
+const KINDS = {opinion:"Мнение", proposal:"Предложение", question:"Вопрос"};
+
+/* ---------- tiny DOM helper ---------- */
+function h(tag, attrs, ...kids){
+  const el = document.createElement(tag);
+  for (const [k,v] of Object.entries(attrs||{})){
+    if (v==null || v===false) continue;
+    if (k.startsWith("on")) el.addEventListener(k.slice(2), v);
+    else if (k==="class") el.className = v;
+    else if (k==="style") el.style.cssText = v;
+    else el.setAttribute(k, v===true ? "" : v);
+  }
+  for (const c of kids.flat()){ if (c==null||c===false) continue; el.append(c instanceof Node ? c : document.createTextNode(String(c))); }
+  return el;
+}
+const rtf = new Intl.RelativeTimeFormat("ru",{numeric:"auto"});
+function ago(t){ const s=(t-Date.now())/1000, a=Math.abs(s);
+  if(a<60) return "только что"; if(a<3600) return rtf.format(Math.round(s/60),"minute");
+  if(a<86400) return rtf.format(Math.round(s/3600),"hour"); return rtf.format(Math.round(s/86400),"day"); }
+const pr = new Intl.PluralRules("ru");
+function plural(n, one, few, many){ const f=pr.select(n); return n+" "+(f==="one"?one:f==="few"?few:many); }
+function toast(msg){ const t=document.getElementById("toast"); t.textContent=msg; t.hidden=false; clearTimeout(toast.t); toast.t=setTimeout(()=>t.hidden=true,3200); }
+function errText(e){ const c=e&&e.code;
+  if(c==="invalid_argument") return "Нет прав на это действие. Попросите владельца выдать вам доступ «Участник» или выше.";
+  if(c==="quota_exceeded") return "Хранилище сообщества заполнено. Администратору нужно удалить старые записи.";
+  return "Не получилось сохранить. Проверьте соединение и попробуйте ещё раз."; }
+
+/* ---------- membership: derived from votes ---------- */
+function computeMembership(){
+  const members = new Set(Object.keys(S.staff));
+  const apps = Object.values(S.apps).sort((a,b)=>a.createdAt-b.createdAt);
+  const tallyOf = app => { let y=0,n=0; for (const m of members){ const v=S.ballots[m]?.apps?.[app.id]; if(v==="for")y++; else if(v==="against")n++; } return {y,n}; };
+  const need = () => Math.max(1, Math.min(REQ_MAX, members.size));
+  let changed = true;
+  while (changed){ changed=false;
+    for (const a of apps){ if (members.has(a.id)) continue; const t=tallyOf(a); if (t.y>=need() && t.y>t.n){ members.add(a.id); changed=true; } } }
+  const status = {};
+  for (const a of apps){
+    const t=tallyOf(a), req=need();
+    status[a.id] = members.has(a.id) ? {state:"admitted",...t,req} : (t.n>=req && t.n>t.y) ? {state:"rejected",...t,req} : {state:"pending",...t,req};
+  }
+  return {members, status, need:need()};
+}
+let M = {members:new Set(), status:{}, need:1};
+const isMember = () => S.isAdmin || M.members.has(S.uid);
+
+/* ---------- initiatives ---------- */
+function tallyInit(i){ let y=0,n=0,a=0; const voters=[];
+  for (const m of M.members){ const v=S.ballots[m]?.votes?.[i.id]; if(v==="for")y++; else if(v==="against")n++; else if(v==="abstain")a++; if(v) voters.push(m); }
+  return {y,n,a,total:y+n+a,voters}; }
+function initOutcome(i,t){ const decided=t.y+t.n; const share = decided? t.y/decided : 0;
+  return {quorum:t.total>=i.quorum, passes: t.total>=i.quorum && share>=i.threshold, share}; }
+function regNo(i){ const sorted=[...S.inits].sort((a,b)=>a.createdAt-b.createdAt); const idx=sorted.indexOf(i)+1; return "РВИ-"+new Date(i.createdAt).getFullYear()+"-"+String(idx).padStart(3,"0"); }
+
+/* ---------- writes ---------- */
+let ballotChain = Promise.resolve();
+function writeBallot(mut){
+  ballotChain = ballotChain.then(async()=>{
+    const cur = S.ballots[S.uid] || {}; const next = JSON.parse(JSON.stringify({apps:{},votes:{},likes:{},...cur})); mut(next);
+    await S.db.doc("ballots/"+S.uid).set(next);
+  }).catch(e=>toast(errText(e)));
+  return ballotChain;
+}
+async function guard(fn){ try{ await fn(); }catch(e){ toast(errText(e)); } }
+
+/* ---------- render ---------- */
+let renderSeq = 0;
+async function render(){
+  const seq = ++renderSeq;
+  M = computeMembership();
+  const ids = new Set([S.uid, ...S.posts.map(p=>p.author), ...S.comments.map(c=>c.author), ...S.inits.map(i=>i.author), ...Object.keys(S.apps)].filter(Boolean));
+  const P = S.user ? await S.user.profiles([...ids]) : {};
+  if (seq!==renderSeq) return;
+  const nameOf = id => (P[id]?.name) || S.apps[id]?.name || "Участник";
+  const avatarOf = id => P[id]?.avatarUrl || "";
+  const ctx = {P,nameOf,avatarOf};
+  renderWho(ctx); renderTabs(); renderRail(ctx);
+  const main = document.getElementById("main");
+  const saved = {}; main.querySelectorAll("input[id],textarea[id],select[id]").forEach(el=>saved[el.id]=el.value);
+  const act = document.activeElement && main.contains(document.activeElement) && document.activeElement.id ? document.activeElement : null;
+  const actId = act?.id, sel = act && "selectionStart" in act ? [act.selectionStart, act.selectionEnd] : null;
+  const detOpen = !!main.querySelector("details[open]");
+  main.replaceChildren();
+  queueMicrotask(()=>{
+    for (const [id,v] of Object.entries(saved)){ const el=document.getElementById(id); if(el && main.contains(el) && v!=="") el.value=v; }
+    if (detOpen){ const d=main.querySelector("details"); if(d) d.open=true; }
+    if (actId){ const el=document.getElementById(actId); if(el){ el.focus({preventScroll:true}); if(sel) try{el.setSelectionRange(sel[0],sel[1]);}catch(e){} } }
+  });
+  if (S.offline){ main.append(h("div",{class:"card empty"},h("h3",{},"Сообщество недоступно в этом окне"),h("p",{},"Откройте страницу на claude.ai, войдя в аккаунт, чтобы читать ленту, подавать заявку и голосовать."))); return; }
+  if (S.stale) main.append(h("div",{class:"notice warn"},"Данные пока не доходят. То, что вы видите, может быть устаревшим."));
+  if (!S.ready){ main.append(h("div",{class:"card empty"},h("h3",{},"Загружаем сообщество…"))); return; }
+  if (!S.canWrite) main.append(h("div",{class:"notice"},"У вас доступ только на чтение. Чтобы участвовать, попросите владельца выдать доступ «Участник»."));
+  if (!isMember()){ main.append(renderGate(ctx)); return; }
+  if (S.tab==="feed") main.append(...renderFeed(ctx));
+  else if (S.tab==="inits") main.append(...renderInits(ctx));
+  else main.append(...renderApps(ctx));
+}
+
+function renderWho({nameOf,avatarOf}){
+  const w=document.getElementById("who"); w.replaceChildren();
+  if (!S.uid) return;
+  w.append(avatarOf(S.uid)?h("img",{src:avatarOf(S.uid),alt:""}):"", h("span",{},nameOf(S.uid)),
+    S.isAdmin?h("span",{class:"chip admin"},"Админ"):isMember()?h("span",{class:"chip"},"Участник"):h("span",{class:"chip"},"Гость"));
+}
+function renderTabs(){
+  const t=document.getElementById("tabs"); t.replaceChildren();
+  if (!S.ready || !isMember()) { t.hidden=true; return; } t.hidden=false;
+  const pendingApps = Object.values(M.status).filter(s=>s.state==="pending").length;
+  const live = S.inits.filter(i=>i.status==="voting").length;
+  [["feed","Лента",S.posts.length],["inits","Инициативы и законы",live],["apps","Заявки",pendingApps]].forEach(([k,label,n])=>{
+    t.append(h("button",{class:"tab",role:"tab","aria-selected":String(S.tab===k),onclick:()=>{S.tab=k;try{localStorage.setItem("rvi-tab",k)}catch(e){};render();}},label, n?h("span",{class:"count"},n):""));
+  });
+}
+
+function renderRail(){
+  const r=document.getElementById("rail"); r.replaceChildren();
+  r.append(h("div",{class:"card charter"},h("div",{class:"eyebrow"},"Устав сообщества"),
+    h("ol",{},
+      h("li",{},"Вступление по анкете. Новичка принимают, когда за него проголосовали "+(M.need>=REQ_MAX?REQ_MAX+" участника":"участники ("+M.need+" из "+REQ_MAX+" пока сообщество маленькое)")+" и «за» больше, чем «против»."),
+      h("li",{},"Каждый участник свободно высказывает мнение, вопрос или предложение в ленте."),
+      h("li",{},"Администраторы выносят идеи и законопроекты на согласование. Можно вынести и предложение участника из ленты."),
+      h("li",{},"Решение принято, если набран кворум и доля «за» среди голосов «за» и «против» не ниже порога."),
+      h("li",{},"Итоги подводит администратор после окончания срока голосования."))));
+  if (S.ready && isMember()){
+    const live=S.inits.filter(i=>i.status==="voting").length, accepted=S.inits.filter(i=>i.status==="accepted").length;
+    r.append(h("div",{class:"card"},h("div",{class:"eyebrow",style:"margin-bottom:10px"},"Сообщество"),
+      h("div",{class:"stats"},
+        h("div",{class:"stat"},h("b",{},M.members.size),h("span",{},"участников")),
+        h("div",{class:"stat"},h("b",{},Object.keys(S.staff).length),h("span",{},"администраторов")),
+        h("div",{class:"stat"},h("b",{},live),h("span",{},"на голосовании")),
+        h("div",{class:"stat"},h("b",{},accepted),h("span",{},"принято")))));
+  }
+  r.append(h("div",{class:"card flat small muted"},"Прототип для ",h("a",{href:"https://forgamedev.ru/",target:"_blank",rel:"noopener"},"forgamedev.ru"),". Администраторы — люди с доступом «Редактор» к этой странице."));
+}
+
+/* ---------- gate: application ---------- */
+function renderGate({nameOf}){
+  const box=h("div",{class:"gate stack"});
+  if (!S.uid){ box.append(h("div",{class:"card empty"},h("h3",{},"Войдите, чтобы вступить"),h("p",{},"Подать анкету и голосовать можно только под своим аккаунтом."))); return box; }
+  const mine=S.apps[S.uid], st=M.status[S.uid];
+  box.append(h("div",{class:"card"},
+    h("div",{class:"eyebrow"},"Вступление в сообщество"),
+    h("h2",{style:"margin-top:6px"},mine?"Ваша анкета на голосовании":"Расскажите о себе"),
+    h("p",{class:"muted",style:"margin:0"},"Доступ к ленте, инициативам и голосованиям открывается после того, как участники примут вашу анкету."),
+    h("div",{class:"steps"},
+      h("div",{class:"step"},h("b",{},"Анкета"),"Кто вы, чем занимаетесь в индустрии и зачем пришли."),
+      h("div",{class:"step"},h("b",{},"Голосование"),"Участники читают анкету и голосуют «за» или «против»."),
+      h("div",{class:"step"},h("b",{},"Допуск"),"Нужно "+plural(M.need,"голос","голоса","голосов")+" «за», и их больше, чем «против».")),
+    mine ? appStatus(mine,st) : ""));
+  box.append(appForm(mine));
+  return box;
+}
+function appStatus(app,st){
+  const wrap=h("div",{class:"stack"});
+  if (st.state==="rejected") wrap.append(h("div",{class:"notice warn"},"Анкета отклонена голосованием: «против» "+st.n+", «за» "+st.y+". Можно дополнить её и попросить администратора пересмотреть."));
+  else wrap.append(h("div",{class:"notice"},"Собрано «за»: "+st.y+" из "+st.req+" нужных, «против»: "+st.n+". Страница обновится сама, когда вас примут."));
+  return wrap;
+}
+function appForm(existing){
+  const v = existing || {};
+  const f=h("form",{class:"card stack"},
+    h("div",{class:"eyebrow"},existing?"Изменить анкету":"Анкета"),
+    h("div",{class:"grid2"},
+      h("label",{},"Имя и фамилия",h("input",{type:"text",id:"app-name",required:true,maxlength:80,value:v.name||"",placeholder:"Анна Смирнова"})),
+      h("label",{},"Студия или компания",h("input",{type:"text",id:"app-org",maxlength:80,value:v.org||"",placeholder:"Инди, Pixel Forge, фриланс…"}))),
+    h("label",{},"Роль в индустрии",h("select",{id:"app-role"},
+      ...["Разработчик","Геймдизайнер","Художник","Продюсер","Издатель","Инвестор","Исследователь / преподаватель","Журналист","Игрок / сообщество"].map(o=>h("option",{selected:v.role===o},o)))),
+    h("label",{},"О себе",h("textarea",{id:"app-about",required:true,maxlength:1500,placeholder:"Над какими проектами работали, что хотите изменить в индустрии, чем можете быть полезны сообществу"},v.about||"")),
+    h("label",{},"Портфолио или ссылки (необязательно)",h("input",{type:"text",id:"app-links",maxlength:300,value:v.links||"",placeholder:"https://…"})),
+    h("div",{class:"row"},h("button",{class:"btn primary",type:"submit",disabled:!S.canWrite},existing?"Сохранить анкету":"Отправить анкету на голосование")));
+  f.addEventListener("submit",e=>{e.preventDefault();
+    const data={name:f.querySelector("#app-name").value.trim(),org:f.querySelector("#app-org").value.trim(),role:f.querySelector("#app-role").value,
+      about:f.querySelector("#app-about").value.trim(),links:f.querySelector("#app-links").value.trim(),createdAt:existing?.createdAt||Date.now(),updatedAt:Date.now()};
+    if(!data.name||!data.about) return toast("Заполните имя и рассказ о себе.");
+    guard(async()=>{ await S.db.doc("applications/"+S.uid).set(data); toast(existing?"Анкета обновлена":"Анкета отправлена. Участники увидят её во вкладке «Заявки»."); });
+  });
+  return f;
+}
+
+/* ---------- applications tab (members vote) ---------- */
+function renderApps({nameOf,avatarOf}){
+  const out=[h("div",{class:"card flat small"},"Здесь участники решают, кого пустить в сообщество. Для допуска нужно "+plural(M.need,"голос","голоса","голосов")+" «за» от действующих участников, и «за» должно быть больше, чем «против». Решённые заявки закрываются для голосования.")];
+  const apps=Object.entries(S.apps).map(([id,a])=>({id,...a,st:M.status[id]})).filter(a=>a.id!==S.uid || a.st.state!=="admitted");
+  const order={pending:0,rejected:1,admitted:2};
+  apps.sort((a,b)=>order[a.st.state]-order[b.st.state] || b.createdAt-a.createdAt);
+  if(!apps.length) out.push(h("div",{class:"card empty"},h("h3",{},"Новых заявок нет"),h("p",{},"Когда кто-то откроет страницу и заполнит анкету, она появится здесь.")));
+  for(const a of apps){
+    const st=a.st, my=S.ballots[S.uid]?.apps?.[a.id], open=st.state==="pending";
+    const vote=v=>writeBallot(b=>{ if(b.apps[a.id]===v) delete b.apps[a.id]; else b.apps[a.id]=v; });
+    out.push(h("article",{class:"card stack"},
+      h("div",{class:"post-head"},avatarOf(a.id)?h("img",{class:"avatar",src:avatarOf(a.id),alt:""}):h("div",{class:"avatar"}),
+        h("div",{class:"grow"},h("div",{class:"name"},a.name||nameOf(a.id)),h("div",{class:"app-meta"},h("span",{},a.role),a.org?h("span",{},a.org):"",h("span",{},"подана "+ago(a.createdAt)))),
+        st.state==="admitted"?h("span",{class:"chip yes"},"Принят"):st.state==="rejected"?h("span",{class:"chip no"},"Отклонён"):h("span",{class:"chip live"},"На голосовании")),
+      h("div",{class:"post-body",style:"margin:0"},a.about),
+      a.links?h("div",{class:"small muted"},"Ссылки: ",a.links):"",
+      h("div",{class:"tally-nums"},h("span",{},h("i",{class:"dot",style:"background:var(--yes)"}),"За ",h("b",{},st.y)," из "+st.req),h("span",{},h("i",{class:"dot",style:"background:var(--no)"}),"Против ",h("b",{},st.n))),
+      h("div",{class:"row"},
+        h("button",{class:"btn"+(my==="for"?" sel-yes":""),disabled:!open||!S.canWrite,onclick:()=>vote("for")},"Принять"),
+        h("button",{class:"btn"+(my==="against"?" sel-no":""),disabled:!open||!S.canWrite,onclick:()=>vote("against")},"Отклонить"),
+        my&&open?h("span",{class:"small muted"},"Ваш голос учтён. Нажмите ещё раз, чтобы отозвать."):"",
+        S.isAdmin?h("button",{class:"btn ghost danger",style:"margin-left:auto",onclick:e=>confirmInline(e.currentTarget,"Удалить заявку?",()=>guard(()=>S.db.doc("applications/"+a.id).delete()))},"Удалить заявку"):"")));
+  }
+  return out;
+}
+
+/* ---------- feed ---------- */
+function renderFeed(ctx){
+  const out=[composer()];
+  if(!S.posts.length) out.push(h("div",{class:"card empty"},h("h3",{},"В ленте пока тихо"),h("p",{},"Напишите первое мнение о том, что важно для индустрии: налоги, господдержка, кадры, маркировка игр.")));
+  for(const p of S.posts) out.push(postCard(p,ctx));
+  return out;
+}
+function composer(){
+  const ta=h("textarea",{id:"post-text",maxlength:3000,placeholder:"Что вы думаете? Мнение, вопрос к сообществу или предложение для администрации"});
+  try{ ta.value=localStorage.getItem("rvi-draft")||""; }catch(e){}
+  ta.addEventListener("input",()=>{try{localStorage.setItem("rvi-draft",ta.value)}catch(e){}});
+  const kinds=h("div",{class:"composer-kinds"},...Object.entries(KINDS).map(([k,l])=>h("button",{type:"button",class:"kind","aria-pressed":String(S.kind===k),onclick:()=>{S.kind=k;kinds.querySelectorAll(".kind").forEach(b=>b.setAttribute("aria-pressed",String(b.dataset.k===k)));},"data-k":k},l)));
+  const send=()=>{const text=ta.value.trim(); if(!text) return toast("Напишите текст сообщения.");
+    guard(async()=>{ await S.db.collection("posts").add({author:S.uid,text,kind:S.kind,createdAt:Date.now()}); const live=document.getElementById("post-text"); if(live) live.value=""; try{localStorage.removeItem("rvi-draft")}catch(e){} toast("Опубликовано"); });};
+  return h("div",{class:"card stack"},ta,h("div",{class:"row"},kinds,h("div",{class:"grow"}),h("button",{class:"btn primary",disabled:!S.canWrite,onclick:send},"Опубликовать")));
+}
+function postCard(p,{nameOf,avatarOf}){
+  const likes=[...M.members].filter(m=>S.ballots[m]?.likes?.[p.id]).length;
+  const iLike=!!S.ballots[S.uid]?.likes?.[p.id];
+  const cs=S.comments.filter(c=>c.target==="post:"+p.id);
+  const open=S.openComments.has(p.id);
+  const linked=S.inits.find(i=>i.sourcePost===p.id);
+  const card=h("article",{class:"card"},
+    h("div",{class:"post-head"},avatarOf(p.author)?h("img",{class:"avatar",src:avatarOf(p.author),alt:""}):h("div",{class:"avatar"}),
+      h("div",{class:"grow"},h("div",{class:"row",style:"gap:6px"},h("span",{class:"name"},nameOf(p.author)),S.staff[p.author]?h("span",{class:"chip admin"},"Админ"):""),h("div",{class:"small muted"},ago(p.createdAt))),
+      h("span",{class:"chip"+(p.kind==="proposal"?" law":"")},KINDS[p.kind]||"Мнение")),
+    h("div",{class:"post-body"},p.text),
+    linked?h("div",{class:"small",style:"margin-bottom:6px"},h("span",{class:"chip law"},"Вынесено на голосование: "+regNo(linked))):"",
+    h("div",{class:"actions"},
+      h("button",{class:"btn ghost",style:iLike?"color:var(--accent)":"",disabled:!S.canWrite,onclick:()=>writeBallot(b=>{ if(b.likes[p.id]) delete b.likes[p.id]; else b.likes[p.id]=true; })},(iLike?"♥ ":"♡ ")+"Поддерживаю"+(likes?" · "+likes:"")),
+      h("button",{class:"btn ghost",onclick:()=>{open?S.openComments.delete(p.id):S.openComments.add(p.id);render();}},"Обсуждение"+(cs.length?" · "+cs.length:"")),
+      S.isAdmin&&!linked?h("button",{class:"btn ghost",style:"color:var(--admin)",onclick:()=>{S.initDraft={summary:p.text,sourcePost:p.id,kind:"idea"};S.tab="inits";render();window.scrollTo({top:0});}},"Вынести на голосование"):"",
+      (p.author===S.uid||S.isAdmin)?h("button",{class:"btn ghost danger",onclick:e=>confirmInline(e.currentTarget,"Удалить запись?",()=>guard(()=>S.db.doc("posts/"+p.id).delete()))},"Удалить"):""));
+  if(open) card.append(commentsBlock("post:"+p.id,cs,{nameOf,avatarOf}));
+  return card;
+}
+function commentsBlock(target,cs,{nameOf,avatarOf}){
+  const inp=h("input",{type:"text",id:"c-"+target,maxlength:1000,placeholder:"Ответить…"});
+  const send=()=>{const text=inp.value.trim(); if(!text) return; guard(async()=>{await S.db.collection("comments").add({target,author:S.uid,text,createdAt:Date.now()}); const live=document.getElementById("c-"+target); if(live) live.value="";});};
+  inp.addEventListener("keydown",e=>{if(e.key==="Enter")send();});
+  return h("div",{class:"comments"},
+    ...cs.map(c=>h("div",{class:"comment"},avatarOf(c.author)?h("img",{class:"avatar",src:avatarOf(c.author),alt:""}):h("div",{class:"avatar"}),
+      h("div",{class:"grow"},h("div",{class:"small"},h("b",{},nameOf(c.author))," ",h("span",{class:"muted"},ago(c.createdAt)),
+        (c.author===S.uid||S.isAdmin)?h("button",{class:"btn ghost danger small",style:"padding:0 6px",onclick:()=>guard(()=>S.db.doc("comments/"+c.id).delete())},"удалить"):""),h("p",{},c.text)))),
+    h("div",{class:"row"},h("div",{class:"grow"},inp),h("button",{class:"btn",disabled:!S.canWrite,onclick:send},"Ответить")));
+}
+
+/* ---------- initiatives ---------- */
+function renderInits(ctx){
+  const out=[];
+  if(S.isAdmin) out.push(initForm());
+  else out.push(h("div",{class:"card flat small"},"Инициативы выносят администраторы. Хотите предложить закон или идею? Опубликуйте её в ленте с пометкой «Предложение» — администратор может вынести её на голосование."));
+  if(!S.inits.length) out.push(h("div",{class:"card empty"},h("h3",{},"На согласовании пока ничего нет"),h("p",{},S.isAdmin?"Заполните форму выше, чтобы вынести первую идею или законопроект.":"Как только администрация вынесет идею или законопроект, здесь появится бюллетень.")));
+  const order={voting:0,accepted:1,rejected:2,withdrawn:3};
+  [...S.inits].sort((a,b)=>(order[a.status]??9)-(order[b.status]??9)||b.createdAt-a.createdAt).forEach(i=>out.push(initCard(i,ctx)));
+  return out;
+}
+function initForm(){
+  const d=S.initDraft||{}; const open=!!S.initDraft;
+  const det=h("details",{class:"card",open:open});
+  det.append(h("summary",{style:"cursor:pointer;font-weight:600"},"Вынести на согласование"));
+  const f=h("form",{class:"stack",style:"margin-top:12px"},
+    h("div",{class:"grid2"},
+      h("label",{},"Тип",h("select",{id:"i-kind"},h("option",{value:"idea",selected:d.kind!=="law"},"Идея"),h("option",{value:"law",selected:d.kind==="law"},"Законопроект"))),
+      h("label",{},"Срок голосования",h("select",{id:"i-days"},...[[3,"3 дня"],[7,"7 дней"],[14,"14 дней"]].map(([v,l])=>h("option",{value:v,selected:v===7},l))))),
+    h("label",{},"Название",h("input",{type:"text",id:"i-title",required:true,maxlength:140,value:d.title||"",placeholder:"О квоте отечественных игр в киберспортивных турнирах"})),
+    h("label",{},"Суть в двух предложениях",h("textarea",{id:"i-summary",required:true,maxlength:800,style:"min-height:70px"},d.summary||"")),
+    h("label",{},"Текст статей (для законопроекта)",h("textarea",{id:"i-body",maxlength:6000,placeholder:"Статья 1. …\nСтатья 2. …"},d.body||"")),
+    h("div",{class:"grid2"},
+      h("label",{},"Порог принятия",h("select",{id:"i-th"},h("option",{value:"0.5"},"Простое большинство (более ½)"),h("option",{value:"0.667"},"Квалифицированное (⅔)"))),
+      h("label",{},"Кворум, голосов",h("input",{type:"text",inputmode:"numeric",id:"i-quorum",value:String(Math.max(1,Math.ceil(M.members.size/2)))}))),
+    h("div",{class:"row"},h("button",{class:"btn primary",type:"submit"},"Открыть голосование"),open?h("button",{class:"btn ghost",type:"button",onclick:()=>{S.initDraft=null;render();}},"Отмена"):""));
+  f.addEventListener("submit",e=>{e.preventDefault();
+    const q=parseInt(f.querySelector("#i-quorum").value,10);
+    const data={kind:f.querySelector("#i-kind").value,title:f.querySelector("#i-title").value.trim(),summary:f.querySelector("#i-summary").value.trim(),body:f.querySelector("#i-body").value.trim(),
+      threshold:parseFloat(f.querySelector("#i-th").value),quorum:q>0?q:1,author:S.uid,createdAt:Date.now(),deadline:Date.now()+parseInt(f.querySelector("#i-days").value,10)*86400000,status:"voting",sourcePost:d.sourcePost||null};
+    if(!data.title||!data.summary) return toast("Нужны название и суть инициативы.");
+    guard(async()=>{await S.db.collection("initiatives").add(data); S.initDraft=null; ["i-title","i-summary","i-body"].forEach(id=>{const el=document.getElementById(id); if(el) el.value="";}); toast("Голосование открыто"); render();});
+  });
+  det.append(f); return det;
+}
+function initCard(i,ctx){
+  const t=tallyInit(i), o=initOutcome(i,t); const my=S.ballots[S.uid]?.votes?.[i.id];
+  const voting=i.status==="voting", expired=voting&&Date.now()>i.deadline, canVote=voting&&!expired&&S.canWrite;
+  const fin=i.final||t; const tot=Math.max(1,fin.y+fin.n+fin.a);
+  let status;
+  if(i.status==="accepted") status=h("span",{class:"chip yes"},"Принято");
+  else if(i.status==="rejected") status=h("span",{class:"chip no"},i.reason==="quorum"?"Нет кворума":"Отклонено");
+  else if(i.status==="withdrawn") status=h("span",{class:"chip"},"Снято");
+  else if(expired) status=h("span",{class:"chip admin"},"Срок истёк · ждёт итогов");
+  else status=h("span",{class:"chip live"},"Голосование · "+ (Math.ceil((i.deadline-Date.now())/86400000)>1?"ещё "+plural(Math.ceil((i.deadline-Date.now())/86400000),"день","дня","дней"):"последний день"));
+  const vote=v=>writeBallot(b=>{ if(b.votes[i.id]===v) delete b.votes[i.id]; else b.votes[i.id]=v; });
+  const card=h("article",{class:"card init"},
+    h("div",{class:"row"},h("span",{class:"reg"},regNo(i)),h("span",{class:"chip"+(i.kind==="law"?" law":"")},i.kind==="law"?"Законопроект":"Идея"),h("div",{class:"grow"}),status),
+    h("h3",{},i.title),
+    h("p",{class:"summary"},i.summary),
+    i.body?h("div",{class:"articles"},i.body):"",
+    h("div",{class:"tally"},
+      h("div",{class:"bar",role:"img","aria-label":"За "+fin.y+", против "+fin.n+", воздержались "+fin.a},
+        h("span",{class:"y",style:"width:"+(fin.y/tot*100)+"%"}),h("span",{class:"n",style:"width:"+(fin.n/tot*100)+"%"}),h("span",{class:"a",style:"width:"+(fin.a/tot*100)+"%"})),
+      h("div",{class:"tally-nums"},
+        h("span",{},h("i",{class:"dot",style:"background:var(--yes)"}),"За ",h("b",{},fin.y)),
+        h("span",{},h("i",{class:"dot",style:"background:var(--no)"}),"Против ",h("b",{},fin.n)),
+        h("span",{},h("i",{class:"dot",style:"background:var(--abst)"}),"Воздержались ",h("b",{},fin.a)),
+        h("span",{class:"muted"},"Кворум "+(fin.y+fin.n+fin.a)+" / "+i.quorum),
+        h("span",{class:"muted"},"Порог "+(i.threshold>0.6?"⅔":"½")+" «за»"))),
+    voting?h("div",{class:"row"},
+      h("button",{class:"btn"+(my==="for"?" sel-yes":""),disabled:!canVote,onclick:()=>vote("for")},"За"),
+      h("button",{class:"btn"+(my==="against"?" sel-no":""),disabled:!canVote,onclick:()=>vote("against")},"Против"),
+      h("button",{class:"btn"+(my==="abstain"?" sel-abst":""),disabled:!canVote,onclick:()=>vote("abstain")},"Воздержаться"),
+      h("span",{class:"small muted"},expired?"Голосование завершено, итоги подведёт администратор.":my?"Голос учтён, его можно изменить до конца срока.":"Голосуют все принятые участники.")):"",
+    h("div",{class:"actions",style:"margin-top:8px"},
+      h("button",{class:"btn ghost",onclick:()=>{const k="i"+i.id;S.openComments.has(k)?S.openComments.delete(k):S.openComments.add(k);render();}},"Обсуждение"+((n=>n?" · "+n:"")(S.comments.filter(c=>c.target==="init:"+i.id).length))),
+      S.isAdmin&&voting?h("button",{class:"btn ghost",style:"color:var(--admin)",onclick:()=>guard(()=>S.db.doc("initiatives/"+i.id).update({status:o.passes?"accepted":"rejected",reason:o.quorum?null:"quorum",closedAt:Date.now(),final:{y:t.y,n:t.n,a:t.a}}))},"Подвести итоги"):"",
+      S.isAdmin&&voting?h("button",{class:"btn ghost",onclick:()=>guard(()=>S.db.doc("initiatives/"+i.id).update({status:"withdrawn",closedAt:Date.now(),final:{y:t.y,n:t.n,a:t.a}}))},"Снять с голосования"):"",
+      S.isAdmin?h("button",{class:"btn ghost danger",onclick:e=>confirmInline(e.currentTarget,"Удалить инициативу?",()=>guard(()=>S.db.doc("initiatives/"+i.id).delete()))},"Удалить"):"",
+      h("span",{class:"small muted",style:"margin-left:auto;align-self:center"},"Вынес "+ctx.nameOf(i.author)+", "+ago(i.createdAt))));
+  if(S.openComments.has("i"+i.id)) card.append(commentsBlock("init:"+i.id,S.comments.filter(c=>c.target==="init:"+i.id),ctx));
+  return card;
+}
+function confirmInline(btn,question,fn){
+  const box=h("span",{class:"row",style:"gap:6px"},h("span",{class:"small"},question),
+    h("button",{class:"btn danger",onclick:()=>{fn();}},"Да, удалить"),h("button",{class:"btn ghost",onclick:()=>box.replaceWith(btn)},"Отмена"));
+  btn.replaceWith(box);
+}
+
+/* ---------- boot ---------- */
+async function boot(){
+  try{ const t=localStorage.getItem("rvi-tab"); if(t) S.tab=t; }catch(e){}
+  if(!window.claude?.use){ S.offline=true; render(); return; }
+  const [db,user]=await Promise.all([window.claude.use("db"),window.claude.use("user")]);
+  S.db=db; S.user=user;
+  if(!db){ S.offline=true; render(); return; }
+  const me = user ? await user.me() : null;
+  S.uid = me?.id || null; S.isAdmin = !!me?.canEdit;
+  const cw = user ? await user.can("data.write") : null; S.canWrite = cw!==false;
+  const need=["posts","comments","inits","ballots","apps","staff"];
+  const timer=setTimeout(()=>{S.stale=true;render();},10000);
+  const done=(k,snap)=>{ if(!snap.metadata.fromCache) S.loaded[k]=true;
+    if(need.every(n=>S.loaded[n])){ clearTimeout(timer); S.stale=false; if(!S.ready){S.ready=true; registerStaff();} } render(); };
+  const fail=k=>e=>{ S.loaded[k]=true; if(e.code!=="revoked") toast("Часть данных не загрузилась."); done(k,{metadata:{fromCache:false}}); };
+  const list=snap=>snap.docs.map(d=>({id:d.id,...d.data()}));
+  const map=snap=>Object.fromEntries(snap.docs.map(d=>[d.id,{id:d.id,...d.data()}]));
+  db.collection("posts").orderBy("createdAt","desc").limit(300).onSnapshot(s=>{S.posts=list(s);done("posts",s);},fail("posts"));
+  db.collection("comments").orderBy("createdAt","asc").limit(1000).onSnapshot(s=>{S.comments=list(s);done("comments",s);},fail("comments"));
+  db.collection("initiatives").onSnapshot(s=>{S.inits=list(s);done("inits",s);},fail("inits"));
+  db.collection("ballots").onSnapshot(s=>{S.ballots=map(s);done("ballots",s);},fail("ballots"));
+  db.collection("applications").onSnapshot(s=>{S.apps=map(s);done("apps",s);},fail("apps"));
+  db.collection("staff").onSnapshot(s=>{S.staff=map(s);done("staff",s);},fail("staff"));
+}
+async function registerStaff(){
+  if(!S.isAdmin||!S.uid||S.staff[S.uid]) return;
+  try{ await S.db.doc("staff/"+S.uid).set({since:Date.now()}); }catch(e){}
+}
+setInterval(()=>{ if(S.ready) render(); },60000); // relative times and deadlines
+boot();
+})();
+</script>
+
+</body>
+</html>
