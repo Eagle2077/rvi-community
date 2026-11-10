@@ -336,6 +336,20 @@ if(!store.requests){
   (store.ballots.u_irina??={apps:{},votes:{},likes:{},endorse:{}}).responses={r3:{note:"Готова судить, есть опыт жюри на конкурсах ИРИ.",at:now-0.2*D}};
   ls.set(KEY_DB,store);
 }
+// идентификация и визитки (добавляется и в уже сохранённые демо)
+if(!store._v3){
+  const P=store.profiles=store.profiles||{}; const at=now-5*D;
+  const set=(id,patch)=>{ if(P[id]) Object.assign(P[id],patch); };
+  set("u_irina",{verified:{gosuslugi:{at,demo:true},workmail:{domain:"forgamedev.ru",at},telegram:{handle:"@irina_rvi",at}},intro:{goals:["law","share","network"],give:"Помогу разобраться с грантами ИРИ и реестром студий, сведу с издателями."}});
+  set("u_oleg",{verified:{workmail:{domain:"pixelforge.ru",at}},intro:{goals:["hire","share"],give:"Разборы монетизации и баланса, шаблон GDD. Ищу геймдизайнера в команду."}});
+  set("u_maria",{verified:{vk:{at,demo:true}},intro:{goals:["job","learn","network"],give:"Концепт-арт и UI для инди, ревью портфолио начинающих художников."}});
+  set("u_artem",{verified:{telegram:{handle:"@artem_ue",at}},intro:{goals:["share","hire"],give:"Консультации по сетевому коду и оптимизации на Unreal Engine 5."}});
+  P.u_denis={name:"Денис Орлов",verified:{workmail:{domain:"chaika-games.ru",at:now-0.2*D}},visibility:"all",hiddenFrom:[],allowedFor:[]};
+  if(store.applications?.u_denis) Object.assign(store.applications.u_denis,{goals:["invest","law","network"],give:"Опыт выпуска двух игр в Steam без издателя: маркетинг, вишлисты, релиз."});
+  const B=store.ballots=store.ballots||{}; const b=id=>(B[id]??={apps:{},votes:{},likes:{},endorse:{}});
+  b("u_irina").vouch={u_oleg:true,u_maria:true}; b("u_oleg").vouch={u_irina:true,u_artem:true,u_denis:true}; b("u_maria").vouch={u_irina:true}; b("u_artem").vouch={u_oleg:true};
+  store._v3=true; ls.set(KEY_DB,store);
+}
 const people=ls.get(KEY_P);
 const meId=ls.get(KEY_ME)||people[0].id;
 const me=people.find(p=>p.id===meId)||people[0];
@@ -518,6 +532,103 @@ function expertise(ownerId){
 function memberTags(id){ const fromProfile=expertise(id).map(e=>e.id); const fromMsgs={}; for(const m of S.messages) if(m.author===id) for(const t of autoTag(m.text)) fromMsgs[t]=(fromMsgs[t]||0)+1;
   return [...new Set([...fromProfile,...Object.entries(fromMsgs).sort((a,b)=>b[1]-a[1]).slice(0,3).map(x=>x[0])])]; }
 
+/* ================= идентификация участников ================= */
+const ID_METHODS = {
+  gosuslugi:{label:"Госуслуги", official:true, hint:"Подтверждает ФИО. В рабочей версии — вход через ЕСИА."},
+  workmail:{label:"Рабочая почта", official:true, hint:"Код на почту студии или компании подтверждает место работы."},
+  vk:{label:"VK ID", hint:"Вход через VK ID."},
+  yandex:{label:"Яндекс ID", hint:"Вход через Яндекс ID."},
+  telegram:{label:"Telegram", hint:"Привязка аккаунта, чтобы вас узнавали в отраслевых чатах."},
+  linkedin:{label:"LinkedIn", hint:"Привязка профиля LinkedIn."}
+};
+const FREE_MAIL=/@(gmail|yandex|ya|mail|bk|inbox|list|rambler|outlook|hotmail|icloud|proton(mail)?)\./i;
+const vouchersOf=id=>[...M.members].filter(m=>m!==id&&S.ballots[m]?.vouch?.[id]);
+function trust(id){
+  const v=S.profiles[id]?.verified||{}; const methods=Object.keys(v).filter(k=>ID_METHODS[k]);
+  const official=methods.some(k=>ID_METHODS[k].official); const vouch=vouchersOf(id).length;
+  const level= official&&vouch>=2 ? 3 : (official||vouch>=2) ? 2 : (methods.length||vouch) ? 1 : 0;
+  return {level,label:["Не подтверждён","Базовая проверка","Личность подтверждена","Проверенный участник"][level],methods,vouch,v};
+}
+function trustBadge(id,showZero){
+  const t=trust(id); if(!t.level&&!showZero) return "";
+  const tip=t.label+(t.methods.length?": "+t.methods.map(k=>ID_METHODS[k].label).join(", "):"")+(t.vouch?", поручились "+t.vouch:"");
+  return h("span",{class:"chip "+(t.level>=2?"lvl-expert":t.level===1?"lvl-pro":""),title:tip},(t.level?"✓ ":"")+t.label);
+}
+function trustDetails(id){
+  const t=trust(id);
+  return h("div",{class:"stack small"},h("div",{class:"row"},trustBadge(id,true)),
+    t.methods.length?h("div",{class:"tags"},...t.methods.map(k=>h("span",{class:"chip"},ID_METHODS[k].label+(k==="workmail"&&t.v.workmail?.domain?" · @"+t.v.workmail.domain:"")+(k==="telegram"&&t.v.telegram?.handle?" · "+t.v.telegram.handle:"")))):"",
+    t.vouch?h("div",{class:"muted"},"Знают лично: "+vouchersOf(id).map(displayName).join(", ")):"");
+}
+function vouchButton(id){
+  if(id===S.uid||!isMember()) return "";
+  const on=!!S.ballots[S.uid]?.vouch?.[id];
+  return h("button",{class:"btn sm"+(on?" sel-yes":""),disabled:!S.canWrite,title:"Подтвердите, что знаете этого человека и он тот, за кого себя выдаёт",
+    onclick:()=>writeBallot(b=>{ b.vouch=b.vouch||{}; if(b.vouch[id]) delete b.vouch[id]; else b.vouch[id]=true; })},on?"✓ Знаю лично":"Знаю лично");
+}
+function identityCard(){
+  const p=S.profiles[S.uid]||{}, v=p.verified||{}, t=trust(S.uid);
+  const save=(key,val)=>guard(async()=>{ const base=S.profiles[S.uid]||{name:S.apps[S.uid]?.name||displayName(S.uid),visibility:"all",hiddenFrom:[],allowedFor:[]};
+    const verified={...(base.verified||{})}; if(val) verified[key]=val; else delete verified[key];
+    await S.db.doc("profiles/"+S.uid).set({...base,verified,updatedAt:Date.now()}); toast(val?ID_METHODS[key].label+": подключено":"Отключено"); });
+  const rows=Object.entries(ID_METHODS).map(([k,m])=>{
+    const done=v[k]; const row=h("div",{class:"row",style:"padding:8px 0;border-bottom:1px solid var(--line)"},
+      h("div",{class:"grow"},h("b",{},m.label),m.official?h("span",{class:"chip lvl-pro",style:"margin-left:8px"},"официально"):"",h("div",{class:"small muted"},done?("Подключено "+ago(done.at)+(done.domain?" · @"+done.domain:"")+(done.handle?" · "+done.handle:"")):m.hint)),
+      done?h("button",{class:"btn ghost sm",onclick:()=>save(k,null)},"Отключить"):h("button",{class:"btn sm",disabled:!S.canWrite,onclick:()=>start(k,row)},"Подключить"));
+    return row;
+  });
+  function start(k,row){
+    const box=h("div",{class:"card flat stack",style:"margin:6px 0"});
+    if(k==="workmail"){
+      const mail=h("input",{type:"text",id:"id-mail",placeholder:"имя@студия.ru"}); const code=h("input",{type:"text",id:"id-code",placeholder:"Код из письма",hidden:true});
+      let sent=null; const go=h("button",{class:"btn sm primary"},"Отправить код");
+      go.onclick=()=>{ if(!sent){ const m=mail.value.trim(); if(!/^[^@\s]+@[^@\s]+\.[^@\s]+$/.test(m)) return toast("Проверьте адрес почты."); if(FREE_MAIL.test(m)) return toast("Нужна почта компании, не личная.");
+          sent={domain:m.split("@")[1].toLowerCase(),code:String(Math.floor(1000+Math.random()*9000))}; code.hidden=false; go.textContent="Подтвердить";
+          box.querySelector(".id-note").textContent="Прототип: письма не отправляются, ваш код — "+sent.code+". В рабочей версии он придёт на "+m+"."; code.focus(); }
+        else { if(code.value.trim()!==sent.code) return toast("Код не подходит."); save("workmail",{domain:sent.domain,at:Date.now()}); } };
+      box.append(h("div",{class:"row"},h("div",{class:"grow"},mail),h("div",{class:"grow"},code),go),h("div",{class:"small muted id-note"},"Мы покажем другим только домен компании, адрес останется скрытым."));
+    } else if(k==="telegram"){
+      const hnd=h("input",{type:"text",id:"id-tg",placeholder:"@ваш_ник"});
+      box.append(h("div",{class:"row"},h("div",{class:"grow"},hnd),h("button",{class:"btn sm primary",onclick:()=>{ const x=hnd.value.trim().replace(/^@?/,"@"); if(x.length<3) return toast("Укажите ник."); save("telegram",{handle:x,at:Date.now()}); }},"Привязать")),
+        h("div",{class:"small muted"},"Прототип: в рабочей версии вход через Telegram Login подтвердит, что аккаунт ваш."));
+    } else {
+      box.append(h("div",{class:"small"},"В рабочей версии откроется окно входа "+ID_METHODS[k].label+", и сайт получит подтверждённые имя и аккаунт. Здесь — имитация."),
+        h("div",{class:"row"},h("button",{class:"btn sm primary",onclick:()=>save(k,{at:Date.now(),demo:true})},"Войти через "+ID_METHODS[k].label),h("button",{class:"btn ghost sm",onclick:()=>box.remove()},"Отмена")));
+    }
+    row.after(box);
+  }
+  return h("div",{class:"card stack",id:"identity-card"},
+    h("div",{class:"row"},h("div",{class:"eyebrow grow"},"Подтверждение личности"),trustBadge(S.uid,true)),
+    h("p",{class:"small muted",style:"margin:0"},"Чем больше способов подключено, тем больше доверия. Госуслуги или рабочая почта плюс два участника, которые знают вас лично, дают статус «Проверенный участник». Анкеты подтверждённых людей принимают быстрее."),
+    h("div",{},...rows),
+    h("div",{class:"small muted"},"Знают лично: "+(t.vouch?vouchersOf(S.uid).map(displayName).join(", "):"пока никто. Участники нажимают «Знаю лично» на вашем профиле или анкете.")));
+}
+
+/* ================= визитка: кто, зачем здесь, что предлагает ================= */
+const GOALS = {job:"Ищу работу", hire:"Ищу людей в команду", invest:"Ищу инвестиции или издателя", share:"Делюсь опытом", law:"Влиять на законы и господдержку", network:"Знакомства в индустрии", learn:"Учиться"};
+function introOf(id){ const p=S.profiles[id]||{}, a=S.apps[id]||{}; const i=p.intro||{};
+  return {who:[p.headline||a.role,p.company||a.org,a.years?plural(a.years,"год","года","лет")+" в индустрии":""].filter(Boolean).join(" · "),
+    about:p.about||a.about||"", goals:(i.goals&&i.goals.length?i.goals:a.goals)||[], give:i.give||a.give||""}; }
+function introBlock(id){
+  const i=introOf(id); const off=(S.profiles[id]?.offer?.formats||[]).map(f=>FORMATS[f]);
+  const row=(label,...val)=>h("div",{style:"display:grid;grid-template-columns:150px minmax(0,1fr);gap:10px"},h("div",{class:"eyebrow",style:"padding-top:2px"},label),h("div",{class:"body-text"},...val));
+  return h("div",{class:"stack",style:"gap:8px"},
+    i.who||i.about?row("Кто",i.who?h("b",{},i.who):"",i.who&&i.about?"\n":"",i.about):"",
+    i.goals.length?row("Зачем здесь",h("div",{class:"tags"},...i.goals.map(g=>h("span",{class:"chip law"},GOALS[g])))):row("Зачем здесь",h("span",{class:"muted"},"не указано")),
+    row("Что предлагает",i.give||h("span",{class:"muted"},"не указано"),off.length?h("div",{class:"tags",style:"margin-top:6px"},...off.map(f=>h("span",{class:"chip"},f))):""));
+}
+function introCard(){
+  const i=introOf(S.uid); const sel=new Set(i.goals);
+  const give=h("textarea",{id:"in-give",maxlength:800,style:"min-height:60px",placeholder:"Чем можете быть полезны: опыт, контакты, помощь, вакансии"},i.give);
+  const save=patch=>guard(async()=>{ const base=S.profiles[S.uid]||{name:displayName(S.uid),visibility:"all",hiddenFrom:[],allowedFor:[]};
+    await S.db.doc("profiles/"+S.uid).set({...base,intro:{...(base.intro||{}),goals:[...sel],give:give.value.trim(),...patch},updatedAt:Date.now()}); toast("Визитка сохранена"); });
+  return h("div",{class:"card stack"},h("div",{class:"eyebrow"},"Визитка: кто вы, зачем здесь, что предлагаете"),
+    h("p",{class:"small muted",style:"margin:0"},"Это первое, что видят участники на вашей карточке и в анкете."),
+    h("div",{class:"tags"},...Object.entries(GOALS).map(([k,l])=>h("button",{class:"chip","aria-pressed":String(sel.has(k)),disabled:!S.canWrite,onclick:()=>{ sel.has(k)?sel.delete(k):sel.add(k); save({goals:[...sel]}); }},l))),
+    h("label",{},"Что предлагаете сообществу",give),
+    h("div",{},h("button",{class:"btn",disabled:!S.canWrite,onclick:()=>save({give:give.value.trim()})},"Сохранить")));
+}
+
 /* ================= writes ================= */
 let chain=Promise.resolve();
 function writeBallot(mut){ chain=chain.then(async()=>{ const cur=S.ballots[S.uid]||{}; const next=JSON.parse(JSON.stringify({apps:{},votes:{},likes:{},endorse:{},...cur})); mut(next); await S.db.doc("ballots/"+S.uid).set(next); }).catch(e=>toast(errText(e))); return chain; }
@@ -598,12 +709,15 @@ function renderGate(){
       h("label",{},"Лет в индустрии",h("input",{type:"number",id:"app-years",min:0,max:60,value:v.years??""}))),
     h("label",{},"О себе и своих проектах",h("textarea",{id:"app-about",required:true,maxlength:1500,placeholder:"Над какими играми работали, что умеете, чем полезны сообществу"},v.about||"")),
     h("label",{},"Портфолио, Steam-страница или сайт студии",h("input",{type:"text",id:"app-links",required:true,maxlength:300,value:v.links||"",placeholder:"https://…"})),
+    h("div",{},h("div",{class:"small",style:"font-weight:600;margin-bottom:6px"},"Зачем вы здесь"),
+      h("div",{class:"tags",id:"app-goals"},...Object.entries(GOALS).map(([k,l])=>h("button",{type:"button",class:"chip","data-goal":k,"aria-pressed":String((v.goals||[]).includes(k)),onclick:e=>{const b=e.currentTarget;b.setAttribute("aria-pressed",String(b.getAttribute("aria-pressed")!=="true"));}},l)))),
+    h("label",{},"Чем можете быть полезны сообществу",h("textarea",{id:"app-give",maxlength:800,style:"min-height:60px",placeholder:"Например: расскажу, как мы получили грант ИРИ; помогу с портфолио художникам; ищу людей в команду"},v.give||"")),
     h("div",{class:"row"},h("button",{class:"btn primary",type:"submit",disabled:!S.canWrite},mine?"Сохранить анкету":"Отправить на голосование")));
   f.addEventListener("submit",e=>{e.preventDefault(); const q=id=>f.querySelector(id).value.trim();
-    const data={name:q("#app-name"),org:q("#app-org"),role:q("#app-role"),years:parseInt(q("#app-years"),10)||0,about:q("#app-about"),links:q("#app-links"),createdAt:mine?.createdAt||Date.now(),updatedAt:Date.now()};
+    const data={name:q("#app-name"),org:q("#app-org"),role:q("#app-role"),years:parseInt(q("#app-years"),10)||0,about:q("#app-about"),links:q("#app-links"),goals:[...f.querySelectorAll("#app-goals [aria-pressed=true]")].map(b=>b.dataset.goal),give:q("#app-give"),createdAt:mine?.createdAt||Date.now(),updatedAt:Date.now()};
     if(!data.name||!data.about||!data.links||!data.org) return toast("Заполните имя, компанию, рассказ о себе и ссылку на работы.");
     guard(async()=>{ await S.db.doc("applications/"+S.uid).set(data); toast(mine?"Анкета обновлена":"Анкета отправлена"); });});
-  box.append(f); return box;
+  box.append(f, identityCard()); return box;
 }
 
 /* ================= chats ================= */
@@ -626,7 +740,7 @@ function renderChats(){
     box.append(h("div",{class:"msg"+(mine?" me":"")},avatarEl(m.author,"sm"),
       h("div",{class:"stack",style:"gap:2px;min-width:0"},
         h("div",{class:"bubble"},
-          h("div",{class:"who-line"},h("button",{class:"btn ghost",style:"padding:0;color:inherit;font-weight:600",onclick:()=>openPerson(m.author)},displayName(m.author)),S.staff[m.author]?h("span",{class:"chip admin"},"Админ"):""),
+          h("div",{class:"who-line"},h("button",{class:"btn ghost",style:"padding:0;color:inherit;font-weight:600",onclick:()=>openPerson(m.author)},displayName(m.author)),S.staff[m.author]?h("span",{class:"chip admin"},"Админ"):"",trust(m.author).level>=2?h("span",{title:trust(m.author).label,style:"color:var(--accent)"},"✓"):""),
           reply?h("div",{class:"quote"},displayName(reply.author)+": "+reply.text.slice(0,120)):"",
           h("div",{class:"body-text"},m.text),
           tags.length?h("div",{style:"margin-top:6px"},tagChips(tags)):"",
@@ -727,7 +841,8 @@ function renderPeople(){
 function personCard(id){
   const visible=canSee(id), p=S.profiles[id]||{}, ex=visible?expertise(id).slice(0,3):[];
   return h("button",{class:"card person",onclick:()=>openPerson(id)},
-    h("div",{class:"post-head"},avatarEl(id),h("div",{class:"grow"},h("div",{class:"name"},displayName(id)),h("div",{class:"small muted"},visible?(p.headline||S.apps[id]?.role||"Участник"):"Профиль скрыт")),S.staff[id]?h("span",{class:"chip admin"},"Админ"):""),
+    h("div",{class:"post-head"},avatarEl(id),h("div",{class:"grow"},h("div",{class:"name row",style:"gap:6px"},displayName(id),trustBadge(id)),h("div",{class:"small muted"},visible?(p.headline||S.apps[id]?.role||"Участник"):"Профиль скрыт")),S.staff[id]?h("span",{class:"chip admin"},"Админ"):""),
+    visible&&introOf(id).goals.length?h("div",{class:"small"},h("span",{class:"muted"},"Здесь, чтобы: "),introOf(id).goals.slice(0,2).map(g=>GOALS[g].toLowerCase()).join(", ")):"",
     visible&&ex.length?h("div",{class:"tags"},...ex.map(e=>h("span",{class:"chip "+(e.level==="expert"?"lvl-expert":e.level==="pro"?"lvl-pro":"")},LEVELS[e.level]+" · "+TAG[e.id].label))):"",
     visible?h("div",{class:"tags"},...memberTags(id).filter(t=>!ex.find(e=>e.id===t)).slice(0,4).map(t=>h("span",{class:"chip tag"},"#"+TAG[t].label))):h("div",{class:"small muted"},"Участник ограничил, кто видит его профиль."));
 }
@@ -739,9 +854,9 @@ function personFull(id){
   const myEnd=S.ballots[S.uid]?.endorse?.[id]||{};
   return h("div",{class:"layout"},h("div",{class:"col"},back,
     h("div",{class:"card stack"},
-      h("div",{class:"post-head",style:"gap:14px"},avatarEl(id,"lg"),h("div",{class:"grow"},h("h2",{style:"font-size:22px"},displayName(id)),h("div",{class:"muted"},p.headline||app.role||""),h("div",{class:"small muted"},[p.company||app.org,p.city].filter(Boolean).join(" · "))),
+      h("div",{class:"post-head",style:"gap:14px"},avatarEl(id,"lg"),h("div",{class:"grow"},h("h2",{style:"font-size:22px"},displayName(id)),h("div",{class:"row",style:"margin:4px 0"},trustBadge(id,true),vouchButton(id)),h("div",{class:"muted"},p.headline||app.role||""),h("div",{class:"small muted"},[p.company||app.org,p.city].filter(Boolean).join(" · "))),
         S.staff[id]?h("span",{class:"chip admin"},"Админ"):""),
-      p.about||app.about?h("div",{class:"body-text"},p.about||app.about):"",
+      introBlock(id),
       (p.links||app.links)?h("div",{class:"small"},"Ссылки: ",p.links||app.links):"",
       (p.socials?.linkedin||p.socials?.artstation)?h("div",{class:"row"},
         p.socials.linkedin?h("a",{class:"btn sm",href:p.socials.linkedin,target:"_blank",rel:"noopener nofollow"},"LinkedIn"):"",
@@ -793,7 +908,7 @@ function renderMe(){
     const skills=[...f.querySelectorAll("#pf-skills [aria-pressed=true]")].map(b=>b.dataset.id);
     const data={...p,name:v("pf-name"),headline:v("pf-head"),company:v("pf-company"),city:v("pf-city"),about:v("pf-about"),links:v("pf-links"),skills,experience,visibility:p.visibility||"all",hiddenFrom:p.hiddenFrom||[],allowedFor:p.allowedFor||[],updatedAt:Date.now()};
     guard(async()=>{ await S.db.doc("profiles/"+S.uid).set(data); delete f.dataset.dirty; toast("Профиль сохранён"); render(); });});
-  left.append(f);
+  left.append(introCard(), identityCard(), f);
   left.append(offerCard(p), importCard(p), privacyCard(p), exportCard(p));
   const ex=expertise(S.uid);
   const rail=h("div",{class:"col"},h("div",{class:"card stack"},h("div",{class:"eyebrow"},"Ваши уровни"),
@@ -1173,11 +1288,12 @@ function renderApps(){
   for(const a of apps){ const st=a.st, my=S.ballots[S.uid]?.apps?.[a.id], open=st.state==="pending";
     const vote=v=>writeBallot(b=>{ if(b.apps[a.id]===v) delete b.apps[a.id]; else b.apps[a.id]=v; });
     out.append(h("article",{class:"card stack"},
-      h("div",{class:"post-head"},avatarEl(a.id),h("div",{class:"grow"},h("div",{class:"name"},a.name),h("div",{class:"small muted"},[a.role,a.org,a.years?plural(a.years,"год","года","лет")+" в индустрии":"","подана "+ago(a.createdAt)].filter(Boolean).join(" · "))),
+      h("div",{class:"post-head"},avatarEl(a.id),h("div",{class:"grow"},h("div",{class:"name row",style:"gap:6px"},a.name,trustBadge(a.id,true)),h("div",{class:"small muted"},[a.role,a.org,a.years?plural(a.years,"год","года","лет")+" в индустрии":"","подана "+ago(a.createdAt)].filter(Boolean).join(" · "))),
         st.state==="rejected"?h("span",{class:"chip no"},"Отклонён"):h("span",{class:"chip live"},"На голосовании")),
-      h("div",{class:"body-text"},a.about),a.links?h("div",{class:"small"},"Работы: ",a.links):"",tagChips(autoTag(a.role,a.about)),
+      introBlock(a.id),a.links?h("div",{class:"small"},"Работы: ",a.links):"",tagChips(autoTag(a.role,a.about,a.give)),
+      trustDetails(a.id),
       h("div",{class:"tally-nums"},h("span",{},h("i",{class:"dot",style:"background:var(--yes)"}),"За ",h("b",{},st.y)," из "+st.req),h("span",{},h("i",{class:"dot",style:"background:var(--no)"}),"Против ",h("b",{},st.n))),
-      h("div",{class:"row"},h("button",{class:"btn"+(my==="for"?" sel-yes":""),disabled:!open||!S.canWrite,onclick:()=>vote("for")},"Принять"),h("button",{class:"btn"+(my==="against"?" sel-no":""),disabled:!open||!S.canWrite,onclick:()=>vote("against")},"Отклонить"),
+      h("div",{class:"row"},h("button",{class:"btn"+(my==="for"?" sel-yes":""),disabled:!open||!S.canWrite,onclick:()=>vote("for")},"Принять"),h("button",{class:"btn"+(my==="against"?" sel-no":""),disabled:!open||!S.canWrite,onclick:()=>vote("against")},"Отклонить"),vouchButton(a.id),
         S.isAdmin?h("button",{class:"btn ghost danger",style:"margin-left:auto",onclick:e=>confirmInline(e.currentTarget,"Удалить заявку?",()=>guard(()=>S.db.doc("applications/"+a.id).delete()))},"Удалить"):"")));
   }
   return out;
