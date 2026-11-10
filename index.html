@@ -46,6 +46,12 @@ mark{background:var(--accent);color:var(--accent-ink);border-radius:3px;padding:
 .search svg{position:absolute;left:13px;top:50%;transform:translateY(-50%);width:16px;height:16px;stroke:var(--muted);fill:none;stroke-width:2}
 .who{display:flex;align-items:center;gap:8px;font-size:13px;color:var(--muted)}
 .who img{width:28px;height:28px;border-radius:50%}
+.who{position:relative}
+.who-btn{display:flex;align-items:center;gap:8px;border:1px solid transparent;background:none;color:var(--muted);font-size:13px;padding:4px 8px;border-radius:8px}
+.who-btn:hover,.who-btn[aria-expanded="true"]{border-color:var(--line);background:var(--surface)}
+.who-menu{position:absolute;right:0;top:calc(100% + 6px);z-index:20;min-width:230px;background:var(--surface);border:1px solid var(--line);border-radius:10px;padding:6px;display:flex;flex-direction:column;box-shadow:0 10px 30px rgba(0,0,0,.35)}
+.who-menu button{border:0;background:none;text-align:left;padding:9px 12px;border-radius:6px;font-size:14px;color:var(--ink)}
+.who-menu button:hover{background:var(--accent-soft);color:var(--accent)}
 .tabs{display:flex;gap:2px;overflow-x:auto}
 .tab{border:0;background:none;padding:9px 13px;border-bottom:2px solid transparent;color:var(--muted);font-weight:600;white-space:nowrap;display:flex;gap:6px;align-items:center;font-size:14px}
 .tab[aria-selected="true"]{color:var(--ink);border-color:var(--accent)}
@@ -234,7 +240,23 @@ body::before{background:var(--bg)}
 .dm-ctx{display:flex;flex-direction:column;gap:2px;width:100%;text-align:left;border:0;border-left:3px solid var(--accent);background:rgba(0,0,0,.18);border-radius:4px;padding:6px 10px;margin-bottom:6px;color:var(--ink);font-size:13px}
 .dm-list .ch{padding:8px}
 /* Участники индустрии */
-.people-page{display:flex;flex-direction:column;gap:18px;max-width:1100px}
+.people-page{display:flex;flex-direction:column;gap:18px;max-width:900px;margin:0 auto}
+.people-bigsearch{display:flex;align-items:center;gap:10px;background:var(--surface);border:1px solid var(--accent-soft);border-radius:12px;padding:6px 10px 6px 18px}
+.people-bigsearch:focus-within{border-color:var(--accent)}
+.people-bigsearch svg{width:20px;height:20px;fill:none;stroke:var(--accent);stroke-width:2.2;stroke-linecap:round;flex:none}
+.people-bigsearch input[type=text]{border:0;background:transparent;font-size:17px;padding:12px 4px;flex:1;min-width:0}
+.people-bigsearch input[type=text]:focus-visible{outline:none}
+.people-filters .chip{font-size:14px;padding:7px 14px;border-radius:8px}
+.pcard-badges{display:flex;flex-direction:column;align-items:flex-end;gap:6px;flex:none}
+.pcard-body{margin-left:66px}
+.pcard-give{background:var(--bg);border-left:2px solid var(--accent);border-radius:6px;padding:12px 16px;display:flex;flex-direction:column;gap:6px}
+.pcard-give-k,.pcard-seek-k{font-family:var(--mono);font-size:12px;font-weight:600;letter-spacing:.06em;text-transform:uppercase;color:var(--accent)}
+.pcard-seek-k{color:var(--admin);margin-right:10px}
+.pcard-give-text{font-size:16px;overflow-wrap:anywhere}
+.pcard-seek{font-size:14px;display:flex;flex-wrap:wrap;align-items:baseline;gap:4px 0}
+.pcard-st{font-family:var(--mono);font-size:11px;font-weight:600;letter-spacing:.06em;text-transform:uppercase;color:var(--accent);margin-left:8px}
+.pcard-st.st-inwork{color:var(--ink)}
+@media (max-width:620px){.pcard-body{margin-left:0}.pcard-badges{align-items:flex-start}.pcard-head{flex-wrap:wrap}}
 .people-head{display:flex;justify-content:space-between;align-items:flex-end;gap:16px;flex-wrap:wrap}
 .people-title{font-size:30px;margin:6px 0 4px;text-transform:none;font-weight:400}
 .people-count{display:flex;align-items:baseline;gap:8px;color:var(--muted);font-size:13px}
@@ -242,10 +264,10 @@ body::before{background:var(--bg)}
 .people-tools{display:flex;gap:12px;align-items:center;flex-wrap:wrap;justify-content:space-between}
 .people-search{flex:0 1 440px;min-width:240px}
 .people-search input[type=text]{padding-left:14px}
-.people-grid{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:16px}
+.people-grid{display:grid;grid-template-columns:minmax(0,1fr);gap:16px}
 @media (max-width:900px){.people-grid{grid-template-columns:minmax(0,1fr)}}
 .pcard{background:var(--surface);border:1px solid var(--line);border-left:3px solid var(--accent-soft);border-radius:var(--r);padding:18px 18px 12px;display:flex;flex-direction:column;gap:12px;cursor:pointer;min-width:0}
-.pcard.me{border-left-color:var(--accent)}
+.pcard.staff{border-left-color:var(--accent)}
 .pcard:hover,.pcard:focus-visible{border-color:var(--accent);border-left-color:var(--accent)}
 .pcard-head{display:flex;gap:14px;align-items:flex-start}
 .pcard-av{width:52px;height:52px;border-radius:12px;background:var(--accent);color:var(--accent-ink);display:grid;place-items:center;font-weight:700;font-size:18px;flex:none;overflow:hidden}
@@ -659,6 +681,10 @@ function autoTag(...texts){ const t=" "+norm(texts.join(" "))+" "; return TAGS.f
 const tagTitle=id=>FACETS[TAG[id].facet].label+": "+TAG[id].def;
 /* Теги и уровни скрыты на сайте, пока словарь не утверждён (решение обсуждения от 10.11). Включить: TAGS_ON = true */
 const TAGS_ON = false;
+/* Демо-показ для питча: в навигации только «Люди» и «Эксперты и запросы», «Мой профиль» — в меню пользователя.
+   Остальные разделы, данные и код на месте; вернуть всё: PITCH = false */
+const PITCH = true;
+const PITCH_TABS = ["people","market","me"];
 function tagChips(ids,onClick){ if(!TAGS_ON) return ""; return h("div",{class:"tags"},...ids.map(id=>h("button",{class:"chip tag","data-facet":TAG[id].facet,title:tagTitle(id),type:"button",onclick:()=>onClick?onClick(id):openTag(id)},"#"+TAG[id].label))); }
 function openTag(id){ S.q="#"+TAG[id].label; document.getElementById("q").value=S.q; render(); }
 function highlight(text,terms){
@@ -905,14 +931,25 @@ function view(){
   if(S.q.trim()) return [...out,renderSearch()];
   const map={chats:renderChats,blogs:renderBlogs,people:renderPeople,market:renderMarket,inits:renderInits,stats:renderStats,apps:renderApps,me:renderMe,tags:renderTagsRef,projects:renderProjects,dms:renderDMs};
   if(S.tab==="stats"&&!S.isAdmin) S.tab="chats";
+  if(PITCH&&!PITCH_TABS.includes(S.tab)) S.tab="people";
   out.push(map[S.tab]?map[S.tab]():renderChats());
   return out;
 }
 function renderWho(){
   const w=document.getElementById("who"); w.replaceChildren(); if(!S.uid) return;
-  w.append(avatarOf(S.uid)?h("img",{src:avatarOf(S.uid),alt:""}):"",h("span",{},displayName(S.uid)),
-    S.isAdmin?h("span",{class:"chip admin"},"Админ"):isMember()?h("span",{class:"chip"},"Участник"):h("span",{class:"chip"},"Гость"));
+  const role=S.isAdmin?h("span",{class:"chip admin"},"Админ"):isMember()?h("span",{class:"chip"},"Участник"):h("span",{class:"chip"},"Гость");
+  if(!isMember()||!S.ready){ w.append(avatarOf(S.uid)?h("img",{src:avatarOf(S.uid),alt:""}):"",h("span",{},displayName(S.uid)),role); return; }
+  /* Меню пользователя: здесь живёт «Мой профиль» (в демо-показе он убран из левой панели) */
+  const go=(fn)=>{ S.userMenu=false; fn(); };
+  const btn=h("button",{class:"who-btn","aria-haspopup":"menu","aria-expanded":String(!!S.userMenu),onclick:e=>{ e.stopPropagation(); S.userMenu=!S.userMenu; renderWho(); }},
+    avatarOf(S.uid)?h("img",{src:avatarOf(S.uid),alt:""}):"",h("span",{},displayName(S.uid)),role,h("span",{class:"muted",style:"font-size:10px"},"▾"));
+  w.append(btn);
+  if(S.userMenu) w.append(h("div",{class:"who-menu",role:"menu"},
+    h("button",{role:"menuitem",onclick:()=>go(()=>{S.tab="me";S.q="";S.person=null;document.getElementById("q").value="";render();window.scrollTo({top:0});})},"Мой профиль"),
+    h("button",{role:"menuitem",onclick:()=>go(()=>openPerson(S.uid))},"Как меня видят другие"),
+    h("button",{role:"menuitem",onclick:()=>go(()=>{S.tab="me";render();setTimeout(()=>document.getElementById("offer-card")?.scrollIntoView({behavior:"smooth"}),50);})},"Настроить профиль эксперта")));
 }
+document.addEventListener("click",e=>{ if(S.userMenu&&!e.target.closest("#who")){ S.userMenu=false; renderWho(); } });
 /* Левая панель разделов: иконки, подпись видна в развёрнутом виде и во всплывающей подсказке */
 const ICONS={
   chats:'<path d="M4 5h16v11H9l-5 4z"/>',
@@ -937,7 +974,9 @@ function renderTabs(){
   const item=([k,l,n,hot])=>h("button",{class:"tab"+(hot?" hot":""),role:"tab",title:l+(n?" · "+n:""),"aria-label":l,"aria-selected":String(S.tab===k&&!S.q),
     onclick:()=>{S.tab=k;S.q="";S.person=null;S.openBlog=null;document.getElementById("q").value="";try{localStorage.setItem("rvi-tab",k)}catch(e){};render();window.scrollTo({top:0});}},
     icon(k),h("span",{class:"tab-label"},l),n?h("span",{class:"count"},n):"");
-  [["chats","Чаты",0],["dms","Сообщения",dmUnreadTotal()],["blogs","Блоги и новости",0],["people","Люди",0],["projects","Проекты",0],["market",invitedMe?"Эксперты и запросы · вас пригласили":"Эксперты и запросы",invitedMe||openReq,!!invitedMe],["inits","Инициативы",live],...(S.isAdmin?[["stats","Аналитика · админ",0]]:[]),["apps","Заявки",pending]].forEach(x=>t.append(item(x)));
+  const marketItem=["market",invitedMe?"Эксперты и запросы · вас пригласили":"Эксперты и запросы",invitedMe||openReq,!!invitedMe];
+  if(PITCH){ [["people","Люди",0],marketItem].forEach(x=>t.append(item(x))); return; }
+  [["chats","Чаты",0],["dms","Сообщения",dmUnreadTotal()],["blogs","Блоги и новости",0],["people","Люди",0],["projects","Проекты",0],marketItem,["inits","Инициативы",live],...(S.isAdmin?[["stats","Аналитика · админ",0]]:[]),["apps","Заявки",pending]].forEach(x=>t.append(item(x)));
   [["tags","Словарь тегов",0],["me","Мой профиль",0]].forEach(x=>tb.append(item(x)));
 }
 function applySide(wide){ document.body.classList.toggle("side-wide",wide); const b=document.getElementById("side-toggle"); b.setAttribute("aria-label",wide?"Свернуть меню":"Развернуть меню"); b.title=wide?"Свернуть":"Развернуть"; try{localStorage.setItem("rvi-side",wide?"wide":"narrow")}catch(e){} }
@@ -1088,8 +1127,11 @@ function commentsBlock(target,cs){
 /* ================= people ================= */
 function openPerson(id){ S.tab="people"; S.person=id; S.q=""; const q=document.getElementById("q"); if(q) q.value=""; render(); window.scrollTo({top:0}); }
 /* ===== Участники индустрии: карточки, свой поиск и фильтры (по макету) ===== */
-const PEOPLE_FILTERS={all:"Все участники",seek:"Ищут людей",give:"Готовы помочь"};
+const PEOPLE_FILTERS={all:"Все участники",seek:"Ищут людей",give:"Могут помочь или направить"};
 const normSearch=t=>String(t||"").toLowerCase().replace(/ё/g,"е").replace(/\s+/g," ").trim();
+/* Простое отсечение русских окончаний: «гранты» найдёт «грантами», «художника» — «художник» */
+const stemRu=w=>w.length>=5?w.replace(/(ами|ями|ого|его|ому|ему|ов|ев|ей|ам|ям|ах|ях|ой|ый|ий|ая|яя|ое|ее|ые|ие|ую|юю|ом|ем|ы|и|а|я|у|ю|е|о|ь)$/,""):w;
+function searchIco(){ const s=document.createElementNS(svgNS,"svg"); s.setAttribute("viewBox","0 0 24 24"); s.setAttribute("aria-hidden","true"); s.innerHTML='<circle cx="11" cy="11" r="6.5"/><path d="M16 16l4.5 4.5"/>'; return s; }
 function initials(name){ return (name||"?").split(/\s+/).filter(Boolean).map(w=>w[0]).slice(0,2).join("").toUpperCase(); }
 function personFacts(id){ const p=S.profiles[id]||{}, a=S.apps[id]||{};
   const exps=p.experience||[]; const first=Math.min(...exps.map(e=>e.from||9999));
@@ -1108,19 +1150,19 @@ function renderPeople(){
   const shown=ids.filter(id=>{
     if(filter!=="all"&&!cur(id).some(a=>a.kind===filter)) return false;
     if(S.peopleTag&&!(canSee(id)&&memberTags(id).includes(S.peopleTag))) return false;
-    if(words.length){ const t=personSearchText(id); if(!words.every(w=>t.includes(w))) return false; }
+    if(words.length){ const t=personSearchText(id); if(!words.every(w=>t.includes(stemRu(w)))) return false; }
     return true; })
     .sort((a,b)=>(b===S.uid)-(a===S.uid)||(!!S.staff[b])-(!!S.staff[a])||displayName(a).localeCompare(displayName(b),"ru"));
-  const qInput=h("input",{type:"text",id:"people-q",value:S.peopleQ||"",autocomplete:"off",placeholder:"Имя, профессия, компания, город, ищу или предлагаю…","aria-label":"Поиск участников"});
+  const qInput=h("input",{type:"text",id:"people-q",value:S.peopleQ||"",autocomplete:"off",placeholder:"Например: гранты, концепт-арт, Unreal Engine…","aria-label":"Поиск участников: имя, профессия, компания, город, ищу или предлагаю"});
   qInput.addEventListener("input",e=>{ S.peopleQ=e.target.value; render(); });
   const narrowed=filter!=="all"||words.length;
+  const clear=()=>{ S.peopleQ=""; const el=document.getElementById("people-q"); if(el){ el.value=""; el.dataset.fresh="1"; } render(); };
   return h("div",{class:"people-page"},
     h("div",{class:"people-head"},
-      h("div",{},h("div",{class:"eyebrow"},"Люди и индустрия"),h("h2",{class:"people-title"},"Участники индустрии"),h("div",{class:"small muted"},"Кто чем занимается · что ищет · чем готов помочь")),
+      h("div",{},h("div",{class:"eyebrow"},"Люди и индустрия"),h("h2",{class:"people-title"},"Найти человека"),h("div",{class:"muted"},"Кого ищем — или с какой задачей нужна помощь?")),
       h("div",{class:"people-count"},h("b",{},String(shown.length).padStart(2,"0")),h("span",{},narrowed?"найдено из "+ids.length:plural(ids.length,"участник","участника","участников").replace(/^\d+ /,"")))),
-    h("div",{class:"people-tools"},
-      h("div",{class:"tags"},...Object.entries(PEOPLE_FILTERS).map(([k,l])=>h("button",{class:"chip","aria-pressed":String(filter===k),onclick:()=>{S.peopleFilter=k;render();}},l))),
-      h("div",{class:"search people-search"},qInput)),
+    h("div",{class:"people-bigsearch"},searchIco(),qInput,(S.peopleQ||"").trim()?h("button",{class:"btn ghost",type:"button",onclick:clear},"Очистить"):""),
+    h("div",{class:"tags people-filters"},...Object.entries(PEOPLE_FILTERS).map(([k,l])=>h("button",{class:"chip","aria-pressed":String(filter===k),onclick:()=>{S.peopleFilter=k;render();}},l))),
     h("div",{class:"tags tags-only"},h("button",{class:"chip","aria-pressed":String(!S.peopleTag),onclick:()=>{S.peopleTag="";render();}},"Все теги")),
     shown.length?h("div",{class:"people-grid"},...shown.map(personCard)):
       h("div",{class:"card empty"},h("h3",{},words.length?"Никого не нашли по запросу «"+S.peopleQ.trim()+"»":"В этом фильтре пока никого"),
@@ -1132,17 +1174,22 @@ function personCard(id){
   const visible=canSee(id), f=personFacts(id), cur=visible?asksOf(id).filter(isCurrent).sort((a,b)=>(a.kind===b.kind?0:a.kind==="seek"?-1:1)||b.updatedAt-a.updatedAt):[];
   const open=()=>openPerson(id);
   const av=avatarOf(id);
-  return h("article",{class:"pcard"+(id===S.uid?" me":""),tabindex:"0",role:"link","aria-label":"Открыть профиль: "+displayName(id),onclick:open,onkeydown:e=>{ if(e.key==="Enter"||e.key===" "){ e.preventDefault(); open(); } }},
+  /* Роль — то, что человек сам написал о себе одной строкой; это не теги экспертизы */
+  const roleChips=visible&&f.role?f.role.split(/\s*[,·]\s*/).filter(Boolean).slice(0,3).map(s=>s.charAt(0).toUpperCase()+s.slice(1)):[];
+  const gives=cur.filter(a=>a.kind==="give"), seeks=cur.filter(a=>a.kind==="seek");
+  return h("article",{class:"pcard"+(S.staff[id]?" staff":""),tabindex:"0",role:"link","aria-label":"Открыть профиль: "+displayName(id),onclick:open,onkeydown:e=>{ if(e.key==="Enter"||e.key===" "){ e.preventDefault(); open(); } }},
     h("div",{class:"pcard-head"},
       h("div",{class:"pcard-av",style:P[id]?.color?"background:"+P[id].color:""},initials(displayName(id))),
-      h("div",{class:"grow",style:"min-width:0"},h("div",{class:"pcard-name"},displayName(id)),trustBadge(id,true)),
-      S.staff[id]?h("span",{class:"chip admin"},"Админ"):""),
-    visible?h("div",{class:"pcard-who"},f.role?h("div",{},f.role):"",(f.company||f.city)?h("div",{class:"small muted"},[f.company,f.city].filter(Boolean).join(" · ")):""):h("div",{class:"pcard-who small muted"},"Участник ограничил, кто видит его профиль."),
-    cur.length?h("div",{class:"pcard-asks"},...cur.slice(0,4).map(a=>h("div",{class:"pcard-ask k-"+a.kind},
-      h("div",{class:"row",style:"gap:6px"},h("span",{class:"eyebrow",style:"margin:0"},ASK_KIND[a.kind]),h("span",{class:"chip ask-st st-"+a.status,style:"font-size:10px"},ASK_STATUS[a.status])),
-      h("div",{class:"pcard-ask-text"},a.text),
-      a.updatedAt?h("div",{class:"small muted",style:"font-size:11px"},"обновлено "+dayMonth(a.updatedAt)):""))):(visible?h("div",{class:"small muted pcard-who"},"Пока не указал, что ищет или предлагает."):""),
-    h("div",{class:"pcard-foot"},h("span",{class:"small muted"},visible&&f.years?plural(f.years,"год","года","лет")+" в индустрии":"В сообществе РВИ"),h("span",{class:"pcard-open"},"Открыть профиль →")));
+      h("div",{class:"grow",style:"min-width:0"},h("div",{class:"pcard-name"},displayName(id)),
+        visible&&(f.company||f.city)?h("div",{class:"small muted"},[f.company,f.city].filter(Boolean).join(" · ")):(!visible?h("div",{class:"small muted"},"Участник ограничил, кто видит его профиль."):"")),
+      h("div",{class:"pcard-badges"},trustBadge(id,true),S.staff[id]?h("span",{class:"chip admin"},"Админ"):"")),
+    roleChips.length?h("div",{class:"pcard-body tags"},...roleChips.map(r=>h("span",{class:"chip"},r))):"",
+    ...gives.map(a=>h("div",{class:"pcard-body pcard-give"},
+      h("div",{class:"row",style:"justify-content:space-between;gap:8px"},h("span",{class:"pcard-give-k"},"Могу помочь или направить"),h("span",{class:"pcard-st st-"+a.status},ASK_STATUS[a.status])),
+      h("div",{class:"pcard-give-text"},a.text),
+      a.updatedAt?h("div",{class:"small muted"},"Обновлено "+dayMonth(a.updatedAt)):"")),
+    ...seeks.map(a=>h("div",{class:"pcard-body pcard-seek"},h("span",{class:"pcard-seek-k"},"Ищу"),h("span",{},a.text),a.status==="inwork"?h("span",{class:"pcard-st st-inwork"},"В работе"):"")),
+    visible&&!cur.length?h("div",{class:"pcard-body small muted"},"Пока не указал, чем может помочь и что ищет."):"");
 }
 function personFull(id){
   const back=h("button",{class:"btn ghost",onclick:()=>{S.person=null;render();}},"← Все участники");
@@ -1180,12 +1227,12 @@ function personFull(id){
         h("b",{class:"grow"},"#"+TAG[e.id].label),
         h("span",{class:"small muted"},plural(e.years,"год","года","лет")+" опыта · "+plural(e.endorse,"подтверждение","подтверждения","подтверждений")),
         id!==S.uid?h("button",{class:"btn sm"+(myEnd[e.id]?" sel-yes":""),disabled:!S.canWrite,onclick:()=>writeBallot(b=>{ b.endorse[id]=b.endorse[id]||{}; if(b.endorse[id][e.id]) delete b.endorse[id][e.id]; else b.endorse[id][e.id]=true; })},myEnd[e.id]?"Подтверждено":"Подтвердить"):""))):h("p",{class:"muted small",style:"margin:0"},"Участник пока не заполнил опыт.")),
-    posts.length?h("div",{class:"pf-sec stack",style:"gap:4px"},h("div",{class:"eyebrow"},"Блог"),...posts.map(b=>h("button",{class:"btn ghost",style:"text-align:left;color:var(--ink);padding:4px 0",onclick:()=>{S.tab="blogs";S.openBlog=b.id;S.person=null;render();}},b.title))):"",
+    posts.length&&!PITCH?h("div",{class:"pf-sec stack",style:"gap:4px"},h("div",{class:"eyebrow"},"Блог"),...posts.map(b=>h("button",{class:"btn ghost",style:"text-align:left;color:var(--ink);padding:4px 0",onclick:()=>{S.tab="blogs";S.openBlog=b.id;S.person=null;render();}},b.title))):"",
     h("div",{class:"pf-sec row small",style:"gap:8px 14px"},
       h("span",{},h("b",{},"Подтверждение: "),h("span",{class:"muted"},t.level?t.label.toLowerCase()+(t.methods.length?" ("+t.methods.map(k=>ID_METHODS[k].label).join(", ")+")":""):"не подтверждён")),sep(),
-      h("span",{class:"muted"},"Блог · "+plural(posts.length,"запись","записи","записей")),sep(),
-      h("span",{class:"muted"},"Активность · "+plural(msgs,"сообщение","сообщения","сообщений")),
-      ...(links.length?[sep(),h("span",{class:"muted row",style:"gap:10px;display:inline-flex"},"Ссылки:",...links)]:[])));
+      ...(PITCH?[]:[h("span",{class:"muted"},"Блог · "+plural(posts.length,"запись","записи","записей")),sep(),
+      h("span",{class:"muted"},"Активность · "+plural(msgs,"сообщение","сообщения","сообщений"))]),
+      ...(links.length?[PITCH?"":sep(),h("span",{class:"muted row",style:"gap:10px;display:inline-flex"},"Ссылки:",...links)]:[])));
 }
 function levelsCard(){ return h("div",{class:"card flat stack small tags-only"},h("div",{class:"eyebrow"},"Кто есть кто"),
   h("div",{},h("b",{},"Специалист")," — указал направление в профиле."),
@@ -1608,7 +1655,7 @@ function dmUnreadTotal(){ return dmPeers().reduce((n,[p])=>n+dmUnread(p),0); }
 let dmChain=Promise.resolve();
 function dmWrite(mut){ dmChain=dmChain.then(async()=>{ const cur=S.dms[S.uid]||{}; const next=JSON.parse(JSON.stringify({msgs:[],read:{},...cur})); delete next.id; mut(next); if(next.msgs.length>DM_CAP) next.msgs=next.msgs.slice(-DM_CAP); await S.db.doc("dms/"+S.uid).set(next); }).catch(e=>toast(errText(e))); return dmChain; }
 function openDM(peer,ctx,draft){ if(!peer||peer===S.uid) return; S.tab="dms"; S.dmPeer=peer; S.dmCtx=ctx||null; S.dmDraft=draft||""; S.q=""; S.person=null; const q=document.getElementById("q"); if(q) q.value=""; render(); window.scrollTo({top:0}); }
-function dmButton(peer,ctx,draft,label){ if(!peer||peer===S.uid||!isMember()) return ""; return h("button",{class:"btn sm primary",onclick:()=>openDM(peer,ctx,draft)},label||"Написать"); }
+function dmButton(peer,ctx,draft,label){ if(PITCH||!peer||peer===S.uid||!isMember()) return ""; return h("button",{class:"btn sm primary",onclick:()=>openDM(peer,ctx,draft)},label||"Написать"); }
 function ctxCard(ctx){ if(!ctx) return ""; const r=ctx.type==="request"?S.requests.find(x=>x.id===ctx.id):null;
   return h("button",{class:"dm-ctx",onclick:()=>{ if(ctx.type==="request"){ S.tab="market"; S.marketView="requests"; render(); } else if(ctx.type==="project"){ S.tab="projects"; render(); } }},
     h("span",{class:"eyebrow",style:"margin:0"},ctx.type==="request"?"По запросу":ctx.type==="project"?"По проекту":"Контекст"),h("span",{},ctx.title||r?.title||"")); }
@@ -1678,7 +1725,7 @@ function contactsSection(id){
         c.type==="telegram"&&tgOk&&norm(tgOk)===norm(c.value)?h("span",{style:"color:var(--accent)",title:"Аккаунт подтверждён"},"✓"):"",
         h("button",{class:"btn ghost sm",title:"Скопировать",onclick:()=>copyText(c.value)},"Копировать"),
         id===S.uid&&c.vis!=="all"?h("span",{class:"chip",style:"font-size:11px"},CONTACT_VIS[c.vis]):""); })),
-    hidden>0?h("div",{class:"small muted"},plural(hidden,"контакт скрыт","контакта скрыто","контактов скрыто")+(all.some(c=>c.vis==="dm")&&!dmThread(id).length?(hidden===1?" — откроется":" — откроются")+", когда начнёте переписку.":".")," ",dmButton(id)):"");
+    hidden>0?h("div",{class:"small muted"},plural(hidden,"контакт скрыт","контакта скрыто","контактов скрыто")+(!PITCH&&all.some(c=>c.vis==="dm")&&!dmThread(id).length?(hidden===1?" — откроется":" — откроются")+", когда начнёте переписку.":".")," ",dmButton(id)):"");
 }
 function contactsCard(){
   const list=(S.profiles[S.uid]?.contacts||contactsOf(S.uid)).map(c=>({...c}));
@@ -1736,13 +1783,15 @@ function renderSearch(){
   for(const id of M.members){ if(!canSee(id)) continue; const p=S.profiles[id]||{}, a=S.apps[id]||{};
     const text=[displayName(id),p.headline,p.company,p.about,a.role,a.org,a.about,...(p.experience||[]).map(e=>e.role+" "+e.company+" "+e.description)].join(" ");
     const sc=score(text,memberTags(id)); if(sc) results.push({type:"people",sc,id,text}); }
+  if(!PITCH){ /* в демо-показе общий поиск ищет только людей — остальные разделы скрыты */
   for(const m of S.messages){ const sc=score(m.text+" "+displayName(m.author),autoTag(m.text)); if(sc) results.push({type:"messages",sc,m,t:m.createdAt}); }
   for(const b of S.blogs){ const sc=score(b.title+" "+b.title+" "+b.text,autoTag(b.title,b.text)); if(sc) results.push({type:"blogs",sc,b,t:b.createdAt}); }
   for(const i of S.inits){ const sc=score(i.title+" "+i.summary+" "+(i.body||""),autoTag(i.title,i.summary,i.body)); if(sc) results.push({type:"inits",sc,i,t:i.createdAt}); }
+  }
   const counts={all:results.length,people:0,messages:0,blogs:0,inits:0}; results.forEach(r=>counts[r.type]++);
   const shown=results.filter(r=>S.qType==="all"||r.type===S.qType).sort((a,b)=>b.sc-a.sc||(b.t||0)-(a.t||0)).slice(0,60);
   const terms=[...words];
-  const types=[["all","Всё"],["people","Люди"],["messages","Сообщения"],["blogs","Блоги"],["inits","Инициативы"]];
+  const types=PITCH?[["all","Люди"]]:[["all","Всё"],["people","Люди"],["messages","Сообщения"],["blogs","Блоги"],["inits","Инициативы"]];
   const chName=id=>channels().find(c=>c.id===id)?.name||id;
   return h("div",{class:"stack"},
     h("div",{class:"row"},h("h2",{class:"sec-title grow"},"Поиск: "+raw),h("button",{class:"btn ghost",onclick:()=>{S.q="";document.getElementById("q").value="";render();}},"Закрыть поиск")),
@@ -1882,7 +1931,7 @@ function renderApps(){
 /* ================= boot ================= */
 let qTimer;
 document.getElementById("q").addEventListener("input",e=>{ clearTimeout(qTimer); qTimer=setTimeout(()=>{ S.q=e.target.value; S.qType="all"; render(); },200); });
-async function boot(){ document.body.classList.toggle("no-tags",!TAGS_ON);
+async function boot(){ document.body.classList.toggle("no-tags",!TAGS_ON); if(PITCH) document.getElementById("q").placeholder="Поиск по людям сообщества";
   try{ const t=localStorage.getItem("rvi-tab"); if(t) S.tab=t; }catch(e){}
   if(!window.claude?.use){ S.offline=true; render(); return; }
   const [db,user]=await Promise.all([window.claude.use("db"),window.claude.use("user")]);
