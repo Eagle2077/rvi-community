@@ -233,6 +233,32 @@ body::before{background:var(--bg)}
 .search input[type=text]{padding-left:40px}
 .dm-ctx{display:flex;flex-direction:column;gap:2px;width:100%;text-align:left;border:0;border-left:3px solid var(--accent);background:rgba(0,0,0,.18);border-radius:4px;padding:6px 10px;margin-bottom:6px;color:var(--ink);font-size:13px}
 .dm-list .ch{padding:8px}
+/* Участники индустрии */
+.people-page{display:flex;flex-direction:column;gap:18px;max-width:1100px}
+.people-head{display:flex;justify-content:space-between;align-items:flex-end;gap:16px;flex-wrap:wrap}
+.people-title{font-size:30px;margin:6px 0 4px;text-transform:none;font-weight:400}
+.people-count{display:flex;align-items:baseline;gap:8px;color:var(--muted);font-size:13px}
+.people-count b{font-family:var(--mono);font-size:28px;color:var(--accent);font-weight:500}
+.people-tools{display:flex;gap:12px;align-items:center;flex-wrap:wrap;justify-content:space-between}
+.people-search{flex:0 1 440px;min-width:240px}
+.people-search input[type=text]{padding-left:14px}
+.people-grid{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:16px}
+@media (max-width:900px){.people-grid{grid-template-columns:minmax(0,1fr)}}
+.pcard{background:var(--surface);border:1px solid var(--line);border-left:3px solid var(--accent-soft);border-radius:var(--r);padding:18px 18px 12px;display:flex;flex-direction:column;gap:12px;cursor:pointer;min-width:0}
+.pcard.me{border-left-color:var(--accent)}
+.pcard:hover,.pcard:focus-visible{border-color:var(--accent);border-left-color:var(--accent)}
+.pcard-head{display:flex;gap:14px;align-items:flex-start}
+.pcard-av{width:52px;height:52px;border-radius:12px;background:var(--accent);color:var(--accent-ink);display:grid;place-items:center;font-weight:700;font-size:18px;flex:none;overflow:hidden}
+.pcard-av img{width:100%;height:100%;object-fit:cover;border-radius:12px}
+.pcard-name{font-weight:700;font-size:17px;margin-bottom:4px;overflow-wrap:anywhere}
+.pcard-who{padding-left:66px;display:flex;flex-direction:column;gap:2px}
+.pcard-asks{padding-left:66px;display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:8px}
+.pcard-ask{background:var(--bg);border-left:2px solid var(--accent-soft);border-radius:4px;padding:8px 10px;display:flex;flex-direction:column;gap:4px;min-width:0}
+.pcard-ask.k-give{border-left-color:var(--accent)}
+.pcard-ask-text{font-size:13px;line-height:1.4;overflow-wrap:anywhere}
+.pcard-foot{margin-left:66px;border-top:1px solid var(--line);padding-top:10px;display:flex;justify-content:space-between;align-items:center;gap:10px}
+.pcard-open{color:var(--accent);font-weight:600;font-size:13px;white-space:nowrap}
+@media (max-width:520px){.pcard-who,.pcard-asks{padding-left:0}.pcard-foot{margin-left:0}.pcard-asks{grid-template-columns:minmax(0,1fr)}.people-search{flex-basis:100%}}
 .proj-grid{display:grid;grid-template-columns:repeat(auto-fill,minmax(420px,1fr));gap:14px}
 @media (max-width:560px){.proj-grid{grid-template-columns:1fr}}
 .contacts{display:flex;flex-direction:column;max-width:720px}
@@ -1061,25 +1087,62 @@ function commentsBlock(target,cs){
 
 /* ================= people ================= */
 function openPerson(id){ S.tab="people"; S.person=id; S.q=""; const q=document.getElementById("q"); if(q) q.value=""; render(); window.scrollTo({top:0}); }
+/* ===== Участники индустрии: карточки, свой поиск и фильтры (по макету) ===== */
+const PEOPLE_FILTERS={all:"Все участники",seek:"Ищут людей",give:"Готовы помочь"};
+const normSearch=t=>String(t||"").toLowerCase().replace(/ё/g,"е").replace(/\s+/g," ").trim();
+function initials(name){ return (name||"?").split(/\s+/).filter(Boolean).map(w=>w[0]).slice(0,2).join("").toUpperCase(); }
+function personFacts(id){ const p=S.profiles[id]||{}, a=S.apps[id]||{};
+  const exps=p.experience||[]; const first=Math.min(...exps.map(e=>e.from||9999));
+  return {role:p.headline||a.role||"", company:p.company||a.org||"", city:p.city||"", years:a.years||(first<9999?new Date().getFullYear()-first:0), exps}; }
+/* Индекс поиска строится только из того, что видит текущий пользователь. Контакты не индексируются. */
+function personSearchText(id){
+  if(!canSee(id)) return normSearch(displayName(id));
+  const f=personFacts(id);
+  return normSearch([displayName(id),f.role,f.company,f.city,...f.exps.map(e=>[e.role,e.company,e.description].join(" ")),...asksOf(id).filter(isCurrent).map(a=>a.text)].join(" "));
+}
 function renderPeople(){
   if(S.person) return personFull(S.person);
   const ids=[...M.members];
-  const tagCounts={}; ids.forEach(id=>{ if(canSee(id)) memberTags(id).forEach(t=>tagCounts[t]=(tagCounts[t]||0)+1); });
-  const shown=ids.filter(id=>!S.peopleTag||(canSee(id)&&memberTags(id).includes(S.peopleTag)));
-  return h("div",{class:"stack"},
-    h("div",{class:"row"},h("h2",{class:"sec-title grow"},"Участники индустрии"),h("span",{class:"small muted"},plural(ids.length,"участник","участника","участников"))),
-    h("div",{class:"tags tags-only"},h("button",{class:"chip","aria-pressed":String(!S.peopleTag),onclick:()=>{S.peopleTag="";render();}},"Все"),
-      ...Object.entries(tagCounts).sort((a,b)=>b[1]-a[1]).map(([t,n])=>h("button",{class:"chip","aria-pressed":String(S.peopleTag===t),onclick:()=>{S.peopleTag=t;render();}},"#"+TAG[t].label+" "+n))),
-    h("div",{class:"people"},...shown.map(personCard)));
+  const filter=S.peopleFilter||"all", q=normSearch(S.peopleQ), words=q?q.split(" "):[];
+  const cur=id=>canSee(id)?asksOf(id).filter(isCurrent):[];
+  const shown=ids.filter(id=>{
+    if(filter!=="all"&&!cur(id).some(a=>a.kind===filter)) return false;
+    if(S.peopleTag&&!(canSee(id)&&memberTags(id).includes(S.peopleTag))) return false;
+    if(words.length){ const t=personSearchText(id); if(!words.every(w=>t.includes(w))) return false; }
+    return true; })
+    .sort((a,b)=>(b===S.uid)-(a===S.uid)||(!!S.staff[b])-(!!S.staff[a])||displayName(a).localeCompare(displayName(b),"ru"));
+  const qInput=h("input",{type:"text",id:"people-q",value:S.peopleQ||"",autocomplete:"off",placeholder:"Имя, профессия, компания, город, ищу или предлагаю…","aria-label":"Поиск участников"});
+  qInput.addEventListener("input",e=>{ S.peopleQ=e.target.value; render(); });
+  const narrowed=filter!=="all"||words.length;
+  return h("div",{class:"people-page"},
+    h("div",{class:"people-head"},
+      h("div",{},h("div",{class:"eyebrow"},"Люди и индустрия"),h("h2",{class:"people-title"},"Участники индустрии"),h("div",{class:"small muted"},"Кто чем занимается · что ищет · чем готов помочь")),
+      h("div",{class:"people-count"},h("b",{},String(shown.length).padStart(2,"0")),h("span",{},narrowed?"найдено из "+ids.length:plural(ids.length,"участник","участника","участников").replace(/^\d+ /,"")))),
+    h("div",{class:"people-tools"},
+      h("div",{class:"tags"},...Object.entries(PEOPLE_FILTERS).map(([k,l])=>h("button",{class:"chip","aria-pressed":String(filter===k),onclick:()=>{S.peopleFilter=k;render();}},l))),
+      h("div",{class:"search people-search"},qInput)),
+    h("div",{class:"tags tags-only"},h("button",{class:"chip","aria-pressed":String(!S.peopleTag),onclick:()=>{S.peopleTag="";render();}},"Все теги")),
+    shown.length?h("div",{class:"people-grid"},...shown.map(personCard)):
+      h("div",{class:"card empty"},h("h3",{},words.length?"Никого не нашли по запросу «"+S.peopleQ.trim()+"»":"В этом фильтре пока никого"),
+        h("p",{},words.length?"Проверьте написание или поищите по профессии, компании или городу."+(filter!=="all"?" Фильтр «"+PEOPLE_FILTERS[filter]+"» тоже применяется.":""):"Выберите «Все участники»."),
+        h("div",{class:"row",style:"justify-content:center"},words.length?h("button",{class:"btn primary",onclick:()=>{S.peopleQ="";const el=document.getElementById("people-q");if(el){el.value="";el.dataset.fresh="1";}render();}},"Очистить поиск"):"",
+          filter!=="all"?h("button",{class:"btn",onclick:()=>{S.peopleFilter="all";render();}},"Показать всех"):"")));
 }
 function personCard(id){
-  const visible=canSee(id), p=S.profiles[id]||{}, ex=visible?expertise(id).slice(0,3):[];
-  return h("button",{class:"card person",onclick:()=>openPerson(id)},
-    h("div",{class:"post-head"},avatarEl(id),h("div",{class:"grow"},h("div",{class:"name row",style:"gap:6px"},displayName(id),trustBadge(id)),h("div",{class:"small muted"},visible?(p.headline||S.apps[id]?.role||"Участник"):"Профиль скрыт")),S.staff[id]?h("span",{class:"chip admin"},"Админ"):""),
-    visible&&introOf(id).seek?h("div",{class:"small"},h("span",{class:"muted"},"Ищу: "),introOf(id).seek.length>90?introOf(id).seek.slice(0,90)+"…":introOf(id).seek):"",
-    visible&&introOf(id).give?h("div",{class:"small"},h("span",{class:"muted"},"Предлагаю: "),introOf(id).give.length>90?introOf(id).give.slice(0,90)+"…":introOf(id).give):"",
-    visible&&ex.length?h("div",{class:"tags"},...ex.map(e=>levelChip(id,e,true))):"",
-    visible?h("div",{class:"tags"},...memberTags(id).filter(t=>!ex.find(e=>e.id===t)).slice(0,4).map(t=>h("span",{class:"chip tag"},"#"+TAG[t].label))):h("div",{class:"small muted"},"Участник ограничил, кто видит его профиль."));
+  const visible=canSee(id), f=personFacts(id), cur=visible?asksOf(id).filter(isCurrent).sort((a,b)=>(a.kind===b.kind?0:a.kind==="seek"?-1:1)||b.updatedAt-a.updatedAt):[];
+  const open=()=>openPerson(id);
+  const av=avatarOf(id);
+  return h("article",{class:"pcard"+(id===S.uid?" me":""),tabindex:"0",role:"link","aria-label":"Открыть профиль: "+displayName(id),onclick:open,onkeydown:e=>{ if(e.key==="Enter"||e.key===" "){ e.preventDefault(); open(); } }},
+    h("div",{class:"pcard-head"},
+      h("div",{class:"pcard-av",style:P[id]?.color?"background:"+P[id].color:""},initials(displayName(id))),
+      h("div",{class:"grow",style:"min-width:0"},h("div",{class:"pcard-name"},displayName(id)),trustBadge(id,true)),
+      S.staff[id]?h("span",{class:"chip admin"},"Админ"):""),
+    visible?h("div",{class:"pcard-who"},f.role?h("div",{},f.role):"",(f.company||f.city)?h("div",{class:"small muted"},[f.company,f.city].filter(Boolean).join(" · ")):""):h("div",{class:"pcard-who small muted"},"Участник ограничил, кто видит его профиль."),
+    cur.length?h("div",{class:"pcard-asks"},...cur.slice(0,4).map(a=>h("div",{class:"pcard-ask k-"+a.kind},
+      h("div",{class:"row",style:"gap:6px"},h("span",{class:"eyebrow",style:"margin:0"},ASK_KIND[a.kind]),h("span",{class:"chip ask-st st-"+a.status,style:"font-size:10px"},ASK_STATUS[a.status])),
+      h("div",{class:"pcard-ask-text"},a.text),
+      a.updatedAt?h("div",{class:"small muted",style:"font-size:11px"},"обновлено "+dayMonth(a.updatedAt)):""))):(visible?h("div",{class:"small muted pcard-who"},"Пока не указал, что ищет или предлагает."):""),
+    h("div",{class:"pcard-foot"},h("span",{class:"small muted"},visible&&f.years?plural(f.years,"год","года","лет")+" в индустрии":"В сообществе РВИ"),h("span",{class:"pcard-open"},"Открыть профиль →")));
 }
 function personFull(id){
   const back=h("button",{class:"btn ghost",onclick:()=>{S.person=null;render();}},"← Все участники");
