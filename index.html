@@ -233,8 +233,13 @@ body::before{background:var(--bg)}
 .search input[type=text]{padding-left:40px}
 .dm-ctx{display:flex;flex-direction:column;gap:2px;width:100%;text-align:left;border:0;border-left:3px solid var(--accent);background:rgba(0,0,0,.18);border-radius:4px;padding:6px 10px;margin-bottom:6px;color:var(--ink);font-size:13px}
 .dm-list .ch{padding:8px}
-.contacts{display:grid;grid-template-columns:repeat(auto-fill,minmax(260px,1fr));gap:4px 24px}
-.contact{display:grid;grid-template-columns:110px minmax(0,1fr) auto auto;gap:8px;align-items:center;padding-block:4px;border-bottom:1px dashed var(--line)}
+.contacts{display:flex;flex-direction:column;max-width:720px}
+.contact{display:flex;align-items:center;gap:12px;padding-block:9px;border-bottom:1px solid var(--line)}
+.contact:last-child{border-bottom:0}
+.contact>.small.muted:first-child{width:130px;flex:none}
+.contact>a,.contact>.contact-val{flex:1 1 auto;min-width:0;font-size:15px}
+.contact .chip{flex:none;order:3}
+.contact>.btn{order:4;flex:none}
 .contact a,.contact-val{overflow:hidden;text-overflow:ellipsis;white-space:nowrap;user-select:all}
 .contact .btn.ghost{padding:2px 6px;font-size:12px}
 .dm-list .ch .count{flex:none}
