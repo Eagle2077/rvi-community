@@ -284,6 +284,22 @@ function seed(){
 if(!ls.get(KEY_DB)||!ls.get(KEY_P)) seed();
 
 let store=ls.get(KEY_DB);
+// дополнение демо-данных для раздела «Эксперты и запросы» (и для уже сохранённых демо)
+if(!store.requests){
+  const offers={u_irina:{formats:["talk","jury"],topics:"Издательство, господдержка, гранты ИРИ",terms:"free",online:true},
+    u_oleg:{formats:["talk","mc","mentor"],topics:"Монетизация F2P, баланс экономики, GDD",terms:"deal",online:true},
+    u_artem:{formats:["mc","consult"],topics:"Сетевой код и оптимизация на Unreal Engine 5",terms:"fee",online:true},
+    u_maria:{formats:["mentor","consult"],topics:"Портфолио художника, концепт-арт персонажей",terms:"deal",online:false}};
+  for(const [id,o] of Object.entries(offers)) if(store.profiles?.[id]) store.profiles[id].offer=o;
+  store.requests={
+    r1:{author:"u_irina",format:"talk",fee:"free",title:"Спикер про монетизацию мобильных игр на отраслевую конференцию",when:"12 декабря, 15:00",place:"Москва",description:"Доклад 30 минут для инди-разработчиков: как зарабатывать без лутбоксов. Оплачиваем дорогу.",status:"open",chosen:null,invited:["u_oleg"],createdAt:now-1.2*D},
+    r2:{author:"u_maria",format:"mc",fee:"deal",title:"Мастер-класс по оптимизации Unreal Engine для студентов",when:"январь",place:"онлайн",description:"Нужен практик, который покажет профилирование на живом проекте. Курс по геймдеву для студентов вуза.",status:"open",chosen:null,invited:[],createdAt:now-3*D},
+    r3:{author:"u_oleg",format:"jury",fee:"free",title:"Жюри для геймджема Pixel Forge",when:"20–22 ноября",place:"Санкт-Петербург",description:"Оценить 15 игр по геймдизайну и арту.",status:"open",chosen:null,invited:[],createdAt:now-0.4*D}};
+  store.ballots=store.ballots||{};
+  (store.ballots.u_artem??={apps:{},votes:{},likes:{},endorse:{}}).responses={r2:{note:"Веду профилирование UE5 в студии, могу показать на нашем проекте.",at:now-2*D}};
+  (store.ballots.u_irina??={apps:{},votes:{},likes:{},endorse:{}}).responses={r3:{note:"Готова судить, есть опыт жюри на конкурсах ИРИ.",at:now-0.2*D}};
+  ls.set(KEY_DB,store);
+}
 const people=ls.get(KEY_P);
 const meId=ls.get(KEY_ME)||people[0].id;
 const me=people.find(p=>p.id===meId)||people[0];
@@ -387,8 +403,11 @@ const S = {
   db:null, user:null, uid:null, isAdmin:false, canWrite:true, offline:false, ready:false, stale:false, loaded:{},
   channels:[], messages:[], blogs:[], comments:[], inits:[], ballots:{}, apps:{}, staff:{}, profiles:{},
   tab:"chats", channel:"general", replyTo:null, openComments:new Set(), openBlog:null, person:null, q:"", qType:"all",
-  peopleTag:"", initDraft:null, exportFmt:"hh", editingProfile:false
+  peopleTag:"", initDraft:null, exportFmt:"hh", editingProfile:false,
+  requests:[], marketView:"requests", marketFormat:"", importSrc:"linkedin"
 };
+const FORMATS = {talk:"Выступление", mc:"Мастер-класс", consult:"Консультация", jury:"Жюри / эксперт", mentor:"Менторство", media:"Подкаст / интервью"};
+const TERMS = {free:"Бесплатно", deal:"По договорённости", fee:"За гонорар"};
 
 /* ================= helpers ================= */
 function h(tag, attrs, ...kids){
@@ -499,7 +518,7 @@ function view(){
   if(S.stale) out.push(h("div",{class:"notice warn",style:"margin-bottom:14px"},"Данные пока не доходят. То, что вы видите, может быть устаревшим."));
   if(!isMember()) return [...out,renderGate()];
   if(S.q.trim()) return [...out,renderSearch()];
-  const map={chats:renderChats,blogs:renderBlogs,people:renderPeople,inits:renderInits,stats:renderStats,apps:renderApps,me:renderMe};
+  const map={chats:renderChats,blogs:renderBlogs,people:renderPeople,market:renderMarket,inits:renderInits,stats:renderStats,apps:renderApps,me:renderMe};
   out.push(map[S.tab]?map[S.tab]():renderChats());
   return out;
 }
@@ -512,7 +531,9 @@ function renderTabs(){
   const t=document.getElementById("tabs"); t.replaceChildren();
   if(!S.ready||!isMember()){ t.hidden=true; return; } t.hidden=false;
   const pending=Object.values(M.status).filter(s=>s.state==="pending").length, live=S.inits.filter(i=>i.status==="voting").length;
-  [["chats","Чаты",0],["blogs","Блоги и новости",0],["people","Люди",0],["inits","Инициативы",live],["stats","Аналитика",0],["apps","Заявки",pending],["me","Мой профиль",0]].forEach(([k,l,n])=>
+  const invitedMe=S.requests.filter(r=>r.status!=="closed"&&(r.invited||[]).includes(S.uid)&&!S.ballots[S.uid]?.responses?.[r.id]).length;
+  const openReq=S.requests.filter(r=>r.status!=="closed").length;
+  [["chats","Чаты",0],["blogs","Блоги и новости",0],["people","Люди",0],["market",invitedMe?"Эксперты и запросы · вас пригласили":"Эксперты и запросы",invitedMe||openReq],["inits","Инициативы",live],["stats","Аналитика",0],["apps","Заявки",pending],["me","Мой профиль",0]].forEach(([k,l,n])=>
     t.append(h("button",{class:"tab",role:"tab","aria-selected":String(S.tab===k&&!S.q),onclick:()=>{S.tab=k;S.q="";S.person=null;S.openBlog=null;document.getElementById("q").value="";try{localStorage.setItem("rvi-tab",k)}catch(e){};render();}},l,n?h("span",{class:"count"},n):"")));
 }
 
@@ -685,7 +706,10 @@ function personFull(id){
       h("div",{class:"post-head",style:"gap:14px"},avatarEl(id,"lg"),h("div",{class:"grow"},h("h2",{style:"font-size:22px"},displayName(id)),h("div",{class:"muted"},p.headline||app.role||""),h("div",{class:"small muted"},[p.company||app.org,p.city].filter(Boolean).join(" · "))),
         S.staff[id]?h("span",{class:"chip admin"},"Админ"):""),
       p.about||app.about?h("div",{class:"body-text"},p.about||app.about):"",
-      (p.links||app.links)?h("div",{class:"small"},"Ссылки: ",p.links||app.links):""),
+      (p.links||app.links)?h("div",{class:"small"},"Ссылки: ",p.links||app.links):"",
+      (p.socials?.linkedin||p.socials?.artstation)?h("div",{class:"row"},
+        p.socials.linkedin?h("a",{class:"btn sm",href:p.socials.linkedin,target:"_blank",rel:"noopener nofollow"},"LinkedIn"):"",
+        p.socials.artstation?h("a",{class:"btn sm",href:p.socials.artstation,target:"_blank",rel:"noopener nofollow"},"ArtStation"):""):""),
     h("div",{class:"card stack"},h("div",{class:"eyebrow"},"Экспертиза"),
       ex.length?h("div",{class:"stack"},...ex.map(e=>h("div",{class:"row"},
         h("span",{class:"chip "+(e.level==="expert"?"lvl-expert":e.level==="pro"?"lvl-pro":"")},LEVELS[e.level]),
@@ -734,7 +758,7 @@ function renderMe(){
     const data={...p,name:v("pf-name"),headline:v("pf-head"),company:v("pf-company"),city:v("pf-city"),about:v("pf-about"),links:v("pf-links"),skills,experience,visibility:p.visibility||"all",hiddenFrom:p.hiddenFrom||[],allowedFor:p.allowedFor||[],updatedAt:Date.now()};
     guard(async()=>{ await S.db.doc("profiles/"+S.uid).set(data); delete f.dataset.dirty; toast("Профиль сохранён"); render(); });});
   left.append(f);
-  left.append(privacyCard(p), exportCard(p));
+  left.append(offerCard(p), importCard(p), privacyCard(p), exportCard(p));
   const ex=expertise(S.uid);
   const rail=h("div",{class:"col"},h("div",{class:"card stack"},h("div",{class:"eyebrow"},"Ваши уровни"),
     ex.length?ex.map(e=>h("div",{class:"row small"},h("span",{class:"chip "+(e.level==="expert"?"lvl-expert":e.level==="pro"?"lvl-pro":"")},LEVELS[e.level]),h("span",{},"#"+TAG[e.id].label))):h("p",{class:"small muted",style:"margin:0"},"Заполните опыт и направления, чтобы получить уровни.")),levelsCard(),
@@ -756,23 +780,219 @@ function privacyCard(p){
 function exportCard(p){
   const name=p.name||displayName(S.uid);
   const ex=expertise(S.uid);
-  const jsonResume={basics:{name,label:p.headline||"",summary:p.about||"",location:{city:p.city||""},profiles:p.links?[{url:p.links}]:[]},
+  const soc=p.socials||{};
+  const profilesList=[...(p.links?[{url:p.links}]:[]),...(soc.linkedin?[{network:"LinkedIn",url:soc.linkedin}]:[]),...(soc.artstation?[{network:"ArtStation",url:soc.artstation}]:[])];
+  const jsonResume={basics:{name,label:p.headline||"",summary:p.about||"",location:{city:p.city||""},profiles:profilesList},
     work:(p.experience||[]).map(e=>({name:e.company,position:e.role,startDate:e.from?String(e.from):"",endDate:e.to?String(e.to):"",summary:e.description})),
     skills:ex.map(e=>({name:TAG[e.id].label,level:LEVELS[e.level],keywords:[plural(e.years,"год","года","лет")+" опыта",plural(e.endorse,"подтверждение","подтверждения","подтверждений")+" в РВИ"]})),
     meta:{source:"Сообщество РВИ",verified:"членство подтверждено голосованием участников"}};
   const hh=[name,p.headline||"",[p.company,p.city].filter(Boolean).join(", "),"","О себе",p.about||"","","Опыт работы",
     ...(p.experience||[]).slice().sort((a,b)=>(b.from||0)-(a.from||0)).flatMap(e=>[(e.from||"")+" — "+(e.to||"по настоящее время")+"  "+e.company,e.role,e.description||"",""]),
     "Ключевые навыки",ex.map(e=>TAG[e.id].label+" ("+LEVELS[e.level].toLowerCase()+")").join(", "),"","Участник Сообщества РВИ, членство подтверждено голосованием."].join("\n");
+  const sorted=(p.experience||[]).slice().sort((a,b)=>(b.from||0)-(a.from||0));
+  const li=["Headline / Заголовок",p.headline||"","","About / О себе",p.about||"","","Experience / Опыт",
+    ...sorted.flatMap(e=>["Title: "+e.role,"Company: "+e.company,"Dates: "+(e.from||"")+" – "+(e.to||"Present"),e.description?"Description: "+e.description:"",""]),
+    "Skills / Навыки",...ex.map(e=>"• "+TAG[e.id].label),"","Сообщество РВИ: членство подтверждено голосованием участников."].join("\n");
+  const SOFT={unreal:"Unreal Engine",unity:"Unity"};
+  const as=["Headline",p.headline||"","","Summary",p.about||"","","Experience",
+    ...sorted.flatMap(e=>[e.role+" — "+e.company,(e.from||"")+" – "+(e.to||"Present"),e.description||"",""]),
+    "Skills",ex.filter(e=>!SOFT[e.id]).map(e=>TAG[e.id].label).join(", "),"","Software",ex.filter(e=>SOFT[e.id]).map(e=>SOFT[e.id]).join(", ")||"—"].join("\n");
   const out=S.exportFmt==="json"?JSON.stringify(jsonResume,null,2):S.exportFmt==="api"?
-    "GET /api/v1/members/{id}/resume\nAuthorization: Bearer <токен площадки-партнёра>\n\n200 OK\n"+JSON.stringify(jsonResume,null,2):hh;
+    "GET /api/v1/members/{id}/resume\nAuthorization: Bearer <токен площадки-партнёра>\n\n200 OK\n"+JSON.stringify(jsonResume,null,2):S.exportFmt==="linkedin"?li:S.exportFmt==="artstation"?as:hh;
+  const links={hh:[["https://hh.ru/applicant/resumes/new","Открыть hh.ru"],["https://career.habr.com/","Открыть Хабр Карьеру"]],
+    linkedin:[[soc.linkedin||"https://www.linkedin.com/","Открыть LinkedIn"]],artstation:[[soc.artstation||"https://www.artstation.com/","Открыть ArtStation"]]}[S.exportFmt]||[];
   const pre=h("div",{class:"code",id:"export-out"},out);
   return h("div",{class:"card stack"},h("div",{class:"eyebrow"},"Экспорт опыта на площадки"),
     h("p",{class:"small muted",style:"margin:0"},"Опыт и экспертиза, подтверждённые сообществом, выгружаются в резюме. Сейчас — копированием. В рабочей версии площадки будут забирать профиль сами через API РВИ, с вашего согласия."),
-    h("div",{class:"tags"},...[["hh","Текст резюме (hh.ru, Хабр Карьера)"],["json","JSON Resume"],["api","Пример ответа API"]].map(([k,l])=>h("button",{class:"chip","aria-pressed":String(S.exportFmt===k),onclick:()=>{S.exportFmt=k;render();}},l))),
+    h("div",{class:"tags"},...[["hh","Текст резюме (hh.ru, Хабр Карьера)"],["linkedin","LinkedIn"],["artstation","ArtStation"],["json","JSON Resume"],["api","Пример ответа API"]].map(([k,l])=>h("button",{class:"chip","aria-pressed":String(S.exportFmt===k),onclick:()=>{S.exportFmt=k;render();}},l))),
     pre,
     h("div",{class:"row"},h("button",{class:"btn primary",onclick:()=>{ navigator.clipboard?.writeText(out).then(()=>toast("Скопировано"),()=>{ const r=document.createRange(); r.selectNodeContents(pre); getSelection().removeAllRanges(); getSelection().addRange(r); toast("Выделено, нажмите Ctrl+C"); }); }},"Копировать"),
-      h("a",{class:"btn",href:"https://hh.ru/applicant/resumes/new",target:"_blank",rel:"noopener"},"Открыть hh.ru"),
-      h("a",{class:"btn",href:"https://career.habr.com/",target:"_blank",rel:"noopener"},"Открыть Хабр Карьеру")));
+      ...links.map(([href,label])=>h("a",{class:"btn",href,target:"_blank",rel:"noopener"},label))));
+}
+
+/* ---------- импорт опыта из LinkedIn и ArtStation ---------- */
+function parseExperience(text){
+  const lines=String(text).split(/\r?\n/).map(l=>l.trim()).filter(Boolean);
+  const dateRe=/((?:[A-Za-zА-Яа-яЁё.]+\s+)?(\d{4}))\s*[-–—]\s*((?:[A-Za-zА-Яа-яЁё.]+\s+)?(\d{4})|present|now|current|настоящее время|по настоящее время|наст\.?\s*время|н\.?\s?в\.?|сейчас)/i;
+  const durRe=/^(·\s*)?\d+\s*(yrs?|years?|mos?|months?|лет|года?|г\.|мес)/i;
+  const hits=[]; lines.forEach((l,i)=>{ const m=l.match(dateRe); if(m) hits.push({i,m}); });
+  return hits.map((hit,k)=>{
+    const {i,m}=hit; const prefix=lines[i].slice(0,m.index).replace(/[,·|]\s*$/,"").trim();
+    let role, company;
+    if(prefix){ const at=prefix.match(/^(.+?)\s+(?:at|в|@|—|-|,)\s+(.+)$/i); role=at?at[1]:prefix; company=at?at[2]:(lines[i-1]||""); }
+    else { role=lines[i-2]||lines[i-1]||""; company=(lines[i-2]?lines[i-1]:"")||""; const at=role.match(/^(.+?)\s+(?:at|в|@)\s+(.+)$/i); if(at&&!company){role=at[1];company=at[2];} }
+    company=company.split(" · ")[0].trim();
+    const stop=k+1<hits.length?hits[k+1].i-(lines[hits[k+1].i].slice(0,hits[k+1].m.index).trim()?0:2):lines.length;
+    const placeRe=/^[^.!?]{2,40},\s*[^.!?]{2,40}$/; // «Moscow, Russia» — строка с местом, не описание
+    const description=lines.slice(i+1,Math.max(i+1,stop)).filter(l=>!durRe.test(l)&&!placeRe.test(l)).join(" ").slice(0,600);
+    return {role:role.trim(),company,from:+m[2]||null,to:m[4]?+m[4]:null,description};
+  }).filter(e=>e.role||e.company);
+}
+function importCard(p){
+  const soc=p.socials||{}; const src=S.importSrc||"linkedin";
+  const hints={linkedin:"Откройте свой профиль LinkedIn, выделите раздел «Опыт» (Experience) целиком, скопируйте и вставьте сюда.",
+    artstation:"Откройте свой профиль ArtStation → Resume, выделите блок Experience, скопируйте и вставьте сюда."};
+  const url=h("input",{type:"text",id:"imp-url",value:soc[src]||"",placeholder:src==="linkedin"?"https://www.linkedin.com/in/ваш-ник":"https://www.artstation.com/ваш-ник"});
+  const ta=h("textarea",{id:"imp-text",placeholder:"Lead Game Designer\nPixel Forge · Full-time\nJan 2020 - Present · 4 yrs\nБаланс экономики и монетизация…",style:"min-height:120px"});
+  const preview=h("div",{class:"stack"});
+  const card=h("div",{class:"card stack"},h("div",{class:"eyebrow"},"Импорт опыта"),
+    h("p",{class:"small muted",style:"margin:0"},"Перенесите опыт с другой площадки, чтобы не заполнять профиль заново. Ссылка на профиль появится у вас на странице и в экспорте."),
+    h("div",{class:"tags"},...[["linkedin","LinkedIn"],["artstation","ArtStation"]].map(([k,l])=>h("button",{class:"chip","aria-pressed":String(src===k),onclick:()=>{S.importSrc=k;render();}},l))),
+    h("label",{},"Ссылка на профиль "+(src==="linkedin"?"LinkedIn":"ArtStation"),url),
+    h("label",{},"Опыт работы (вставьте текст)",ta),
+    h("p",{class:"small muted",style:"margin:0"},hints[src]),
+    h("div",{class:"row"},
+      h("button",{class:"btn",onclick:()=>{ const items=parseExperience(ta.value); showPreview(items); }},"Разобрать"),
+      h("button",{class:"btn ghost",disabled:!S.canWrite,onclick:()=>saveImport([])},"Сохранить только ссылку")),
+    preview);
+  function showPreview(items){
+    preview.replaceChildren();
+    if(!items.length){ preview.append(h("div",{class:"notice warn"},"Не нашёл мест работы. Нужны строки с датами вида «Jan 2020 - Present» или «2018 – 2022».")); return; }
+    preview.append(h("div",{class:"small",style:"font-weight:600"},"Найдено мест работы: "+items.length+". Проверьте и поправьте перед добавлением."));
+    items.forEach((e,n)=>preview.append(h("div",{class:"card flat stack","data-imp":n},
+      h("label",{class:"row",style:"flex-direction:row;font-weight:600"},h("input",{type:"checkbox",checked:true,"data-f":"on"}),"Добавить"),
+      h("div",{class:"grid2"},h("label",{},"Роль",h("input",{type:"text","data-f":"role",value:e.role})),h("label",{},"Компания",h("input",{type:"text","data-f":"company",value:e.company}))),
+      h("div",{class:"grid2"},h("label",{},"С (год)",h("input",{type:"number","data-f":"from",value:e.from||""})),h("label",{},"По (пусто — сейчас)",h("input",{type:"number","data-f":"to",value:e.to||""}))),
+      h("label",{},"Описание",h("textarea",{"data-f":"description",style:"min-height:50px"},e.description)))));
+    preview.append(h("div",{},h("button",{class:"btn primary",disabled:!S.canWrite,onclick:()=>{
+      const chosen=[...preview.querySelectorAll("[data-imp]")].filter(r=>r.querySelector('[data-f="on"]').checked).map(r=>{ const v=f=>r.querySelector('[data-f="'+f+'"]').value.trim();
+        return {role:v("role"),company:v("company"),from:parseInt(v("from"),10)||null,to:parseInt(v("to"),10)||null,description:v("description"),source:src}; });
+      saveImport(chosen); }},"Добавить в профиль")));
+  }
+  function saveImport(items){
+    const link=url.value.trim();
+    guard(async()=>{ const base=S.profiles[S.uid]||{name:displayName(S.uid),visibility:"all",hiddenFrom:[],allowedFor:[]};
+      const key=e=>norm(e.role+"|"+e.company);
+      const have=new Set((base.experience||[]).map(key));
+      const experience=[...(base.experience||[]),...items.filter(e=>!have.has(key(e)))];
+      await S.db.doc("profiles/"+S.uid).set({...base,experience,socials:{...(base.socials||{}),...(link?{[src]:link}:{})},updatedAt:Date.now()});
+      const added=items.filter(e=>!have.has(key(e))).length;
+      ["imp-text"].forEach(id=>{const el=document.getElementById(id); if(el) el.value="";});
+      const pf=document.querySelector("form[data-dirty]"); if(pf) delete pf.dataset.dirty;
+      toast(added?"Добавлено мест работы: "+added:"Ссылка сохранена"); render(); });
+  }
+  return card;
+}
+
+/* ================= эксперты и запросы ================= */
+const offerOf=id=>S.profiles[id]?.offer;
+const isOffering=id=>canSee(id)&&(offerOf(id)?.formats||[]).length>0;
+const reqTags=r=>autoTag(r.title,r.description);
+function matchScore(id,r){ const o=offerOf(id)||{}; if(!(o.formats||[]).includes(r.format)) return 0; const mt=memberTags(id), rt=reqTags(r);
+  const ex=expertise(id); let sc=1; for(const t of rt){ if(mt.includes(t)) sc+=2; const e=ex.find(x=>x.id===t); if(e) sc+=e.level==="expert"?3:e.level==="pro"?1:0; } return sc; }
+const myResponse=r=>S.ballots[S.uid]?.responses?.[r.id];
+const responders=r=>[...M.members].filter(m=>S.ballots[m]?.responses?.[r.id]);
+function renderMarket(){
+  const views=[["requests","Запросы организаторов"],["experts","Каталог экспертов"],["mine","Мои запросы и отклики"]];
+  const head=h("div",{class:"stack"},
+    h("div",{class:"row"},h("h2",{class:"sec-title grow"},"Эксперты и запросы")),
+    h("p",{class:"muted",style:"margin:0;max-width:80ch"},"Организаторы ищут спикеров, наставников, жюри и консультантов. Эксперты отмечают в профиле, в чём готовы участвовать, и откликаются на запросы."),
+    h("div",{class:"tags"},...views.map(([k,l])=>h("button",{class:"chip","aria-pressed":String(S.marketView===k),onclick:()=>{S.marketView=k;render();}},l))));
+  const body=S.marketView==="experts"?expertsView():S.marketView==="mine"?mineView():requestsView();
+  return h("div",{class:"stack"},head,body);
+}
+function formatFilter(){ return h("div",{class:"tags"},h("button",{class:"chip","aria-pressed":String(!S.marketFormat),onclick:()=>{S.marketFormat="";render();}},"Все форматы"),
+  ...Object.entries(FORMATS).map(([k,l])=>h("button",{class:"chip","aria-pressed":String(S.marketFormat===k),onclick:()=>{S.marketFormat=k;render();}},l))); }
+function requestsView(){
+  const list=S.requests.filter(r=>r.status!=="closed"&&(!S.marketFormat||r.format===S.marketFormat));
+  const mineInvited=list.filter(r=>(r.invited||[]).includes(S.uid));
+  const left=h("div",{class:"col"},requestForm(),formatFilter());
+  if(!list.length) left.append(h("div",{class:"card empty"},h("h3",{},"Открытых запросов нет"),h("p",{},"Ищете спикера на конференцию, ведущего мастер-класса или жюри? Создайте запрос выше.")));
+  [...mineInvited,...list.filter(r=>!mineInvited.includes(r))].forEach(r=>left.append(requestCard(r)));
+  const myOffer=offerOf(S.uid);
+  const rail=h("div",{class:"col"},h("div",{class:"card stack small"},h("div",{class:"eyebrow"},"Вы как эксперт"),
+    (myOffer?.formats||[]).length?h("div",{class:"tags"},...myOffer.formats.map(f=>h("span",{class:"chip lvl-pro"},FORMATS[f]))):h("p",{style:"margin:0"},"Вы пока не отметили, в чём готовы участвовать. Тогда организаторы не найдут вас в каталоге."),
+    h("button",{class:"btn",onclick:()=>{S.tab="me";render();setTimeout(()=>document.getElementById("offer-card")?.scrollIntoView({behavior:"smooth"}),50);}},"Настроить в профиле")),
+    h("div",{class:"card flat stack small"},h("div",{class:"eyebrow"},"Как это работает"),
+      h("div",{},"1. Организатор публикует запрос: формат, дата, место, условия."),
+      h("div",{},"2. Сайт подсказывает подходящих экспертов по тегам и уровню, их можно пригласить."),
+      h("div",{},"3. Эксперты откликаются, организатор выбирает одного, запрос закрывается.")));
+  return h("div",{class:"layout"},left,rail);
+}
+function requestForm(){
+  const det=h("details",{class:"card"},h("summary",{style:"cursor:pointer;font-weight:600"},"Создать запрос на эксперта"));
+  const f=h("form",{class:"stack",style:"margin-top:12px"},
+    h("div",{class:"grid2"},h("label",{},"Формат",h("select",{id:"rq-format"},...Object.entries(FORMATS).map(([k,l])=>h("option",{value:k},l)))),
+      h("label",{},"Условия",h("select",{id:"rq-fee"},...Object.entries(TERMS).map(([k,l])=>h("option",{value:k},l))))),
+    h("label",{},"Что нужно",h("input",{type:"text",id:"rq-title",maxlength:160,placeholder:"Спикер про монетизацию мобильных игр на конференцию"})),
+    h("div",{class:"grid2"},h("label",{},"Когда",h("input",{type:"text",id:"rq-when",maxlength:80,placeholder:"12 декабря, 15:00"})),h("label",{},"Где",h("input",{type:"text",id:"rq-place",maxlength:120,placeholder:"Москва или онлайн"}))),
+    h("label",{},"Подробности",h("textarea",{id:"rq-desc",maxlength:3000,placeholder:"Аудитория, длительность, тема, что даёте взамен"})),
+    h("div",{},h("button",{class:"btn primary",type:"submit",disabled:!S.canWrite},"Опубликовать запрос")));
+  f.addEventListener("submit",e=>{e.preventDefault(); const v=id=>f.querySelector("#"+id).value.trim();
+    const data={author:S.uid,format:v("rq-format"),fee:v("rq-fee"),title:v("rq-title"),when:v("rq-when"),place:v("rq-place"),description:v("rq-desc"),status:"open",chosen:null,invited:[],createdAt:Date.now()};
+    if(!data.title) return toast("Напишите, кто нужен.");
+    guard(async()=>{ await S.db.collection("requests").add(data); ["rq-title","rq-when","rq-place","rq-desc"].forEach(id=>{const el=document.getElementById(id); if(el) el.value="";}); toast("Запрос опубликован"); });});
+  det.append(f); return det;
+}
+function requestCard(r){
+  const mine=r.author===S.uid, resp=responders(r), my=myResponse(r), invited=(r.invited||[]).includes(S.uid), closed=r.status==="closed";
+  const card=h("article",{class:"card stack"},
+    h("div",{class:"row"},h("span",{class:"chip law"},FORMATS[r.format]||"Запрос"),h("span",{class:"chip"},TERMS[r.fee]||""),
+      invited&&!closed?h("span",{class:"chip live"},"Вас пригласили"):"",closed?h("span",{class:"chip yes"},"Эксперт выбран"):"",h("div",{class:"grow"}),
+      h("span",{class:"small muted"},plural(resp.length,"отклик","отклика","откликов"))),
+    h("h3",{style:"font-size:17px"},r.title),
+    h("div",{class:"small muted"},[r.when,r.place].filter(Boolean).join(" · ")),
+    r.description?h("div",{class:"body-text"},r.description):"",
+    tagChips(reqTags(r)),
+    h("div",{class:"small muted"},"Ищет ",h("button",{class:"btn ghost",style:"padding:0;color:var(--ink);font-weight:600",onclick:()=>openPerson(r.author)},displayName(r.author)),", "+ago(r.createdAt)));
+  if(closed&&r.chosen) card.append(h("div",{class:"notice"},"Выбран эксперт: "+displayName(r.chosen)));
+  if(!mine&&!closed){
+    if(my) card.append(h("div",{class:"row"},h("span",{class:"chip yes"},"Вы откликнулись"),my.note?h("span",{class:"small muted grow"},"«"+my.note+"»"):h("span",{class:"grow"}),
+      h("button",{class:"btn ghost",onclick:()=>writeBallot(b=>{ b.responses=b.responses||{}; delete b.responses[r.id]; })},"Отозвать")));
+    else { const note=h("input",{type:"text",id:"note-"+r.id,maxlength:300,placeholder:"Пара слов: почему вы подходите, какая тема"});
+      card.append(h("div",{class:"row"},h("div",{class:"grow"},note),h("button",{class:"btn primary",disabled:!S.canWrite,onclick:()=>writeBallot(b=>{ b.responses=b.responses||{}; b.responses[r.id]={note:note.value.trim(),at:Date.now()}; }).then(()=>toast("Отклик отправлен"))},"Откликнуться"))); }
+  }
+  if(mine){
+    if(resp.length) card.append(h("div",{class:"stack"},h("div",{class:"eyebrow"},"Откликнулись"),...resp.map(id=>{ const n=S.ballots[id].responses[r.id];
+      return h("div",{class:"row"},avatarEl(id,"sm"),h("div",{class:"grow"},h("button",{class:"btn ghost",style:"padding:0;color:var(--ink);font-weight:600",onclick:()=>openPerson(id)},displayName(id)),n.note?h("div",{class:"small muted"},n.note):""),
+        levelChips(id,reqTags(r)),!closed?h("button",{class:"btn sm primary",onclick:()=>guard(()=>S.db.doc("requests/"+r.id).update({status:"closed",chosen:id,closedAt:Date.now()}))},"Выбрать"):r.chosen===id?h("span",{class:"chip yes"},"Выбран"):""); })));
+    if(!closed){
+      const sugg=[...M.members].filter(id=>id!==S.uid&&isOffering(id)&&!resp.includes(id)).map(id=>({id,sc:matchScore(id,r)})).filter(x=>x.sc>0).sort((a,b)=>b.sc-a.sc).slice(0,4);
+      card.append(h("div",{class:"stack"},h("div",{class:"eyebrow"},"Подходят по формату и тегам"),
+        sugg.length?sugg.map(({id})=>h("div",{class:"row"},avatarEl(id,"sm"),h("button",{class:"btn ghost grow",style:"padding:0;color:var(--ink);font-weight:600;text-align:left",onclick:()=>openPerson(id)},displayName(id)),levelChips(id,reqTags(r)),
+          (r.invited||[]).includes(id)?h("span",{class:"chip"},"Приглашён"):h("button",{class:"btn sm",onclick:()=>guard(()=>S.db.doc("requests/"+r.id).update({invited:[...(r.invited||[]),id]}))},"Пригласить"))):h("p",{class:"small muted",style:"margin:0"},"Пока никто не отметил этот формат. Запрос всё равно видят все участники.")));
+      card.append(h("div",{class:"actions"},h("button",{class:"btn ghost",onclick:()=>guard(()=>S.db.doc("requests/"+r.id).update({status:"closed",closedAt:Date.now()}))},"Закрыть без выбора"),
+        h("button",{class:"btn ghost danger",onclick:e=>confirmInline(e.currentTarget,"Удалить запрос?",()=>guard(()=>S.db.doc("requests/"+r.id).delete()))},"Удалить")));
+    }
+  } else if(S.isAdmin) card.append(h("div",{class:"actions"},h("button",{class:"btn ghost danger",onclick:e=>confirmInline(e.currentTarget,"Удалить запрос?",()=>guard(()=>S.db.doc("requests/"+r.id).delete()))},"Удалить")));
+  return card;
+}
+function levelChips(id,tags){ const ex=expertise(id).filter(e=>!tags.length||tags.includes(e.id)).slice(0,2);
+  return h("div",{class:"tags"},...ex.map(e=>h("span",{class:"chip "+(e.level==="expert"?"lvl-expert":e.level==="pro"?"lvl-pro":"")},LEVELS[e.level]+" · "+TAG[e.id].label))); }
+function expertsView(){
+  const ids=[...M.members].filter(id=>isOffering(id)&&(!S.marketFormat||offerOf(id).formats.includes(S.marketFormat)));
+  const myOpen=S.requests.filter(r=>r.author===S.uid&&r.status!=="closed");
+  return h("div",{class:"stack"},formatFilter(),
+    !ids.length?h("div",{class:"card empty"},h("h3",{},"Экспертов в этом формате пока нет"),h("p",{},"Участники отмечают форматы в «Мой профиль» → «Готов участвовать».")):"",
+    h("div",{class:"people"},...ids.map(id=>{ const o=offerOf(id);
+      const pick=myOpen.length?h("select",{id:"inv-"+id,style:"width:auto;flex:1"},...myOpen.map(r=>h("option",{value:r.id},r.title.slice(0,50)))):null;
+      return h("div",{class:"card stack"},
+        h("div",{class:"post-head"},avatarEl(id),h("div",{class:"grow"},h("button",{class:"btn ghost",style:"padding:0;color:var(--ink);font-weight:600",onclick:()=>openPerson(id)},displayName(id)),h("div",{class:"small muted"},S.profiles[id]?.headline||""))),
+        h("div",{class:"tags"},...o.formats.map(f=>h("span",{class:"chip law"},FORMATS[f]))),
+        o.topics?h("div",{class:"small"},h("b",{},"Темы: "),o.topics):"",
+        h("div",{class:"small muted"},[TERMS[o.terms]||"",o.online?"онлайн":"",S.profiles[id]?.city||""].filter(Boolean).join(" · ")),
+        levelChips(id,[]),
+        id!==S.uid?(pick?h("div",{class:"row"},pick,h("button",{class:"btn sm primary",onclick:()=>{ const r=S.requests.find(x=>x.id===pick.value); if(!r) return; if((r.invited||[]).includes(id)) return toast("Уже приглашён");
+          guard(async()=>{ await S.db.doc("requests/"+r.id).update({invited:[...(r.invited||[]),id]}); toast("Приглашение отправлено"); }); }},"Пригласить")):h("div",{class:"small muted"},"Чтобы пригласить, создайте запрос во вкладке «Запросы организаторов».")):"");
+    })));
+}
+function mineView(){
+  const mine=S.requests.filter(r=>r.author===S.uid), responded=S.requests.filter(r=>myResponse(r)), invited=S.requests.filter(r=>(r.invited||[]).includes(S.uid)&&!myResponse(r));
+  const sec=(title,list,empty)=>h("div",{class:"stack"},h("div",{class:"eyebrow"},title+" · "+list.length),...(list.length?list.map(requestCard):[h("p",{class:"small muted",style:"margin:0"},empty)]));
+  return h("div",{class:"stack"},sec("Меня пригласили",invited,"Приглашений пока нет."),sec("Мои запросы",mine,"Вы ещё не создавали запросов."),sec("Мои отклики",responded,"Вы ещё ни на что не откликались."));
+}
+function offerCard(p){
+  const o=p.offer||{formats:[],topics:"",terms:"deal",online:true};
+  const save=patch=>guard(async()=>{ const base=S.profiles[S.uid]||{name:displayName(S.uid),visibility:"all",hiddenFrom:[],allowedFor:[]};
+    await S.db.doc("profiles/"+S.uid).set({...base,offer:{...o,...(base.offer||{}),...patch},updatedAt:Date.now()}); toast("Сохранено"); });
+  const topics=h("input",{type:"text",id:"of-topics",value:o.topics||"",maxlength:300,placeholder:"Монетизация F2P, баланс экономики, как подаваться на гранты"});
+  return h("div",{class:"card stack",id:"offer-card"},h("div",{class:"eyebrow"},"Готов участвовать как эксперт"),
+    h("p",{class:"small muted",style:"margin:0"},"Отметьте форматы — вы появитесь в каталоге экспертов, и организаторы смогут вас пригласить."),
+    h("div",{class:"tags"},...Object.entries(FORMATS).map(([k,l])=>h("button",{class:"chip","aria-pressed":String((o.formats||[]).includes(k)),disabled:!S.canWrite,onclick:()=>{ const s=new Set(o.formats||[]); s.has(k)?s.delete(k):s.add(k); save({formats:[...s]}); }},l))),
+    h("label",{},"Темы, о которых можете рассказать",topics),
+    h("div",{class:"row"},h("select",{id:"of-terms",style:"width:auto",onchange:e=>save({terms:e.target.value})},...Object.entries(TERMS).map(([k,l])=>h("option",{value:k,selected:o.terms===k},l))),
+      h("label",{class:"row",style:"flex-direction:row;font-weight:400"},h("input",{type:"checkbox",id:"of-online",checked:o.online!==false,onchange:e=>save({online:e.target.checked})}),"Могу онлайн"),
+      h("div",{class:"grow"}),h("button",{class:"btn",disabled:!S.canWrite,onclick:()=>save({topics:topics.value.trim()})},"Сохранить темы")));
 }
 
 /* ================= search ================= */
@@ -937,7 +1157,7 @@ async function boot(){
   S.db=db; S.user=user; if(!db){ S.offline=true; render(); return; }
   const me=user?await user.me():null; S.uid=me?.id||null; S.isAdmin=!!me?.canEdit;
   const cw=user?await user.can("data.write"):null; S.canWrite=cw!==false;
-  const need=["channels","messages","blogs","comments","inits","ballots","apps","staff","profiles"];
+  const need=["channels","messages","blogs","comments","inits","ballots","apps","staff","profiles","requests"];
   const timer=setTimeout(()=>{S.stale=true;render();},10000);
   let pending=false; const schedule=()=>{ if(pending) return; pending=true; requestAnimationFrame(()=>{pending=false;render();}); };
   const done=(k,snap)=>{ if(!snap.metadata.fromCache) S.loaded[k]=true; if(need.every(n=>S.loaded[n])){ clearTimeout(timer); S.stale=false; if(!S.ready){ S.ready=true; registerStaff(); } } schedule(); };
@@ -952,6 +1172,7 @@ async function boot(){
   db.collection("applications").onSnapshot(s=>{S.apps=map(s);done("apps",s);},fail("apps"));
   db.collection("staff").onSnapshot(s=>{S.staff=map(s);done("staff",s);},fail("staff"));
   db.collection("profiles").onSnapshot(s=>{S.profiles=map(s);done("profiles",s);},fail("profiles"));
+  db.collection("requests").orderBy("createdAt","desc").limit(300).onSnapshot(s=>{S.requests=list(s);done("requests",s);},fail("requests"));
 }
 async function registerStaff(){ if(!S.isAdmin||!S.uid||S.staff[S.uid]) return; try{ await S.db.doc("staff/"+S.uid).set({since:Date.now()}); }catch(e){} }
 setInterval(()=>{ if(S.ready&&!document.hidden) render(); },60000);
