@@ -878,6 +878,7 @@ function view(){
   if(!isMember()) return [...out,renderGate()];
   if(S.q.trim()) return [...out,renderSearch()];
   const map={chats:renderChats,blogs:renderBlogs,people:renderPeople,market:renderMarket,inits:renderInits,stats:renderStats,apps:renderApps,me:renderMe,tags:renderTagsRef,projects:renderProjects,dms:renderDMs};
+  if(S.tab==="stats"&&!S.isAdmin) S.tab="chats";
   out.push(map[S.tab]?map[S.tab]():renderChats());
   return out;
 }
@@ -910,7 +911,7 @@ function renderTabs(){
   const item=([k,l,n,hot])=>h("button",{class:"tab"+(hot?" hot":""),role:"tab",title:l+(n?" · "+n:""),"aria-label":l,"aria-selected":String(S.tab===k&&!S.q),
     onclick:()=>{S.tab=k;S.q="";S.person=null;S.openBlog=null;document.getElementById("q").value="";try{localStorage.setItem("rvi-tab",k)}catch(e){};render();window.scrollTo({top:0});}},
     icon(k),h("span",{class:"tab-label"},l),n?h("span",{class:"count"},n):"");
-  [["chats","Чаты",0],["dms","Сообщения",dmUnreadTotal()],["blogs","Блоги и новости",0],["people","Люди",0],["projects","Проекты",0],["market",invitedMe?"Эксперты и запросы · вас пригласили":"Эксперты и запросы",invitedMe||openReq,!!invitedMe],["inits","Инициативы",live],["stats","Аналитика",0],["apps","Заявки",pending]].forEach(x=>t.append(item(x)));
+  [["chats","Чаты",0],["dms","Сообщения",dmUnreadTotal()],["blogs","Блоги и новости",0],["people","Люди",0],["projects","Проекты",0],["market",invitedMe?"Эксперты и запросы · вас пригласили":"Эксперты и запросы",invitedMe||openReq,!!invitedMe],["inits","Инициативы",live],...(S.isAdmin?[["stats","Аналитика · админ",0]]:[]),["apps","Заявки",pending]].forEach(x=>t.append(item(x)));
   [["tags","Словарь тегов",0],["me","Мой профиль",0]].forEach(x=>tb.append(item(x)));
 }
 function applySide(wide){ document.body.classList.toggle("side-wide",wide); const b=document.getElementById("side-toggle"); b.setAttribute("aria-label",wide?"Свернуть меню":"Развернуть меню"); b.title=wide?"Свернуть":"Развернуть"; try{localStorage.setItem("rvi-side",wide?"wide":"narrow")}catch(e){} }
@@ -1722,7 +1723,7 @@ function renderStats(){
   const topAuth=Object.entries(auth).sort((a,b)=>b[1]-a[1]).slice(0,6);
   const topPosts=[...S.blogs].sort((a,b)=>likesOf(b.id)-likesOf(a.id)).slice(0,5);
   return h("div",{class:"stack"},
-    h("div",{class:"row"},h("h2",{class:"sec-title grow"},"Аналитика сообщества"),h("span",{class:"small muted"},"Считается по сообщениям, блогам и комментариям, обновляется вживую")),
+    h("div",{class:"row"},h("h2",{class:"sec-title grow"},"Аналитика сообщества"),h("span",{class:"chip admin"},"Видят только администраторы"),h("span",{class:"small muted"},"Считается по сообщениям, блогам и комментариям, обновляется вживую")),
     h("div",{class:"kpis"},
       h("div",{class:"card kpi"},h("span",{},"Участников"),h("b",{},M.members.size),h("span",{class:"delta up"},joins?"+"+joins+" за 30 дней":"")),
       h("div",{class:"card kpi"},h("span",{},"Публикаций за 7 дней"),h("b",{},last7),delta(last7,prev7)),
