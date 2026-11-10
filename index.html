@@ -233,6 +233,8 @@ body::before{background:var(--bg)}
 .search input[type=text]{padding-left:40px}
 .dm-ctx{display:flex;flex-direction:column;gap:2px;width:100%;text-align:left;border:0;border-left:3px solid var(--accent);background:rgba(0,0,0,.18);border-radius:4px;padding:6px 10px;margin-bottom:6px;color:var(--ink);font-size:13px}
 .dm-list .ch{padding:8px}
+.proj-grid{display:grid;grid-template-columns:repeat(auto-fill,minmax(420px,1fr));gap:14px}
+@media (max-width:560px){.proj-grid{grid-template-columns:1fr}}
 .contacts{display:flex;flex-direction:column;max-width:720px}
 .contact{display:flex;align-items:center;gap:12px;padding-block:9px;border-bottom:1px solid var(--line)}
 .contact:last-child{border-bottom:0}
@@ -1473,15 +1475,20 @@ function projectCatalog(){
   const f=S.gfilter;
   const list=S.projects.filter(p=>[...f].every(t=>(p.tags||[]).includes(t)));
   const counts={}; list.forEach(p=>(p.tags||[]).forEach(t=>counts[t]=(counts[t]||0)+1));
-  const presetBtns=h("div",{class:"tags"},...GAME_PRESETS.map(p=>h("button",{class:"chip",title:p.why+" → "+p.tags.map(t=>GTAG[t].label).join(" + "),onclick:()=>{ p.tags.forEach(t=>f.add(t)); render(); }},p.label)));
-  const left=h("div",{class:"col"},
-    f.size?h("div",{class:"row"},h("span",{class:"small muted"},"Фильтр:"),gameChips([...f]),h("button",{class:"btn ghost sm",onclick:()=>{f.clear();render();}},"Сбросить")):"",
+  /* Простой путь: пресеты в одну строку. Полный фильтр по 18 группам спрятан под «Расширенный фильтр». */
+  const presetOn=p=>p.tags.every(t=>f.has(t));
+  const presetBtns=GAME_PRESETS.map(p=>h("button",{class:"chip","aria-pressed":String(presetOn(p)),title:p.why+" → "+p.tags.map(t=>GTAG[t].label).join(" + "),
+    onclick:()=>{ if(presetOn(p)) p.tags.forEach(t=>f.delete(t)); else p.tags.forEach(t=>f.add(t)); render(); }},p.label));
+  const adv=!!S.projAdv;
+  const toolbar=h("div",{class:"card stack",style:"gap:10px"},
+    h("div",{class:"row",style:"gap:8px"},h("span",{class:"small muted",style:"margin-right:4px"},"Жанр:"),...presetBtns,h("div",{class:"grow"}),
+      h("button",{class:"btn sm"+(adv?" primary":""),"aria-expanded":String(adv),onclick:()=>{S.projAdv=!adv;render();}},(adv?"Скрыть расширенный фильтр":"Расширенный фильтр")+(f.size?" · "+f.size:""))),
+    f.size?h("div",{class:"row",style:"gap:8px"},h("span",{class:"small muted"},"Выбрано:"),gameChips([...f]),h("button",{class:"btn ghost sm",onclick:()=>{f.clear();render();}},"Сбросить")):"",
+    adv?h("div",{class:"stack",style:"border-top:1px solid var(--line);padding-top:12px"},h("div",{class:"small muted"},"Для продвинутых: все группы тегов. Показываются только теги, которые есть у найденных игр."),facetPicker(f,render,counts)):"");
+  return h("div",{class:"stack"},toolbar,
     h("div",{class:"small muted"},plural(list.length,"проект","проекта","проектов")+(f.size?(list.length%10===1&&list.length%100!==11?" подходит":" подходят")+" под все выбранные теги":"")),
     ...(!list.length?[h("div",{class:"card empty"},h("h3",{},S.projects.length?"Ничего не подходит":"Проектов пока нет"),h("p",{},S.projects.length?"Уберите часть тегов из фильтра.":"Добавьте свою игру через «Конструктор тегов»."))]:[]),
-    ...list.map(projectCard));
-  const rail=h("div",{class:"col"},h("div",{class:"card stack"},h("div",{class:"eyebrow"},"Пресеты"),h("p",{class:"small muted",style:"margin:0"},"Привычные названия жанров. Клик добавляет их базовые теги в фильтр."),presetBtns),
-    h("div",{class:"card stack"},h("div",{class:"eyebrow"},"Фильтр по тегам"),facetPicker(f,render,counts)));
-  return h("div",{class:"layout"},left,rail);
+    h("div",{class:"proj-grid"},...list.map(projectCard)));
 }
 function projectCard(p){
   const mine=p.author===S.uid;
