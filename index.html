@@ -230,8 +230,43 @@ body::before{background:var(--bg)}
 .btn,.kind,input[type=text],input[type=number],textarea,select{border-radius:var(--r)}
 .btn.primary{text-transform:uppercase;letter-spacing:.04em;font-size:13px}
 .chip,.count{border-radius:2px}
-.tab{text-transform:uppercase;font-size:12px;letter-spacing:.06em}
-.tab[aria-selected="true"]{color:var(--accent)}
+.search input[type=text]{padding-left:40px}
+/* Левая панель разделов */
+:root{--side-w:68px}
+body.side-wide{--side-w:236px}
+body.has-side{padding-left:var(--side-w)}
+.side{position:fixed;left:0;top:0;bottom:0;width:var(--side-w);z-index:8;background:var(--bg);border-right:1px solid var(--line);display:flex;flex-direction:column;gap:6px;padding:calc(12px + env(safe-area-inset-top,0px)) 10px calc(12px + env(safe-area-inset-bottom,0px)) max(10px,env(safe-area-inset-left,0px));transition:width .15s}
+.side-logo{width:44px;height:44px;border-radius:10px;background:var(--accent);color:var(--accent-ink);display:grid;place-items:center;font-family:var(--mono);font-weight:700;font-size:16px;margin:0 0 14px 2px;flex:none}
+.side-list{display:flex;flex-direction:column;gap:4px}
+.side-bottom{margin-top:auto}
+.side .tab{position:relative;border:0;border-radius:10px;background:none;color:var(--muted);height:44px;padding:0 12px;display:flex;align-items:center;gap:12px;font-size:14px;font-weight:600;text-transform:none;letter-spacing:0;white-space:nowrap;overflow:hidden}
+.side .tab svg{width:22px;height:22px;flex:none;fill:none;stroke:currentColor;stroke-width:1.7;stroke-linecap:round;stroke-linejoin:round}
+.side .tab:hover{color:var(--ink);background:var(--surface)}
+.side .tab[aria-selected="true"]{color:var(--accent);background:var(--accent-soft)}
+.side .tab[aria-selected="true"]::before{content:"";position:absolute;left:0;top:8px;bottom:8px;width:3px;border-radius:2px;background:var(--accent)}
+.side .tab-label{overflow:hidden;text-overflow:ellipsis}
+.side .count{position:absolute;top:5px;left:28px;font-size:10px;padding:0 5px;line-height:15px;background:var(--accent);color:var(--accent-ink)}
+.side .tab.hot .count{background:var(--admin);color:var(--accent-ink)}
+body:not(.side-wide) .side .tab-label{display:none}
+body.side-wide .side .count{position:static;margin-left:auto}
+.side-toggle{margin-top:8px;width:44px;height:36px;border-radius:8px;border:1px solid var(--line);background:var(--surface);color:var(--muted);display:grid;place-items:center;flex:none}
+.side-toggle svg{width:18px;height:18px;fill:none;stroke:currentColor;stroke-width:2;stroke-linecap:round;stroke-linejoin:round;transform:rotate(180deg);transition:transform .15s}
+body.side-wide .side-toggle svg{transform:none}
+.side-toggle:hover{color:var(--ink)}
+/* Телефон: панель становится нижней строкой с иконками */
+@media (max-width:760px){
+  body.has-side{padding-left:0;padding-bottom:calc(64px + env(safe-area-inset-bottom,0px))}
+  .side{top:auto;right:0;width:auto;height:auto;flex-direction:row;border-right:0;border-top:1px solid var(--line);padding:6px max(8px,env(safe-area-inset-right,0px)) calc(6px + env(safe-area-inset-bottom,0px)) max(8px,env(safe-area-inset-left,0px));overflow-x:auto}
+  .side-logo,.side-toggle{display:none}
+  .side-list{flex-direction:row}
+  .side-bottom{margin-top:0}
+  .side .tab-label{display:none!important}
+  .side .tab{padding:0 11px}
+  .side .count{position:absolute!important}
+  .pixel{display:none}
+  .chat .chlist>*{flex:none}
+  .chat .chlist .btn{white-space:nowrap}
+}
 .card{border-radius:var(--r)}
 .card.flat{background:var(--surface-2)}
 .chat,.code{border-radius:var(--r)}
@@ -253,9 +288,14 @@ body::before{background:var(--bg)}
       <div class="search" id="search-box" hidden><svg viewBox="0 0 24 24"><circle cx="11" cy="11" r="7"/><path d="M20 20l-4-4"/></svg><input type="text" id="q" placeholder="Поиск по людям, чатам, блогам и инициативам." autocomplete="off"></div>
       <div class="who" id="who"></div>
     </div>
-    <nav class="tabs" id="tabs" role="tablist"></nav>
   </div>
 </header>
+<nav class="side" id="side" aria-label="Разделы" hidden>
+  <div class="side-logo" title="Сообщество РВИ">//</div>
+  <div class="side-list" id="tabs" role="tablist"></div>
+  <div class="side-list side-bottom" id="tabs-bottom"></div>
+  <button class="side-toggle" id="side-toggle" type="button" aria-label="Развернуть меню"><svg viewBox="0 0 24 24"><path d="M15 6l-6 6 6 6"/></svg></button>
+</nav>
 <main class="wrap page" id="main"><div class="card empty"><h3>Загружаем сообщество…</h3><p>Чаты, блоги, профили участников и инициативы появятся через секунду.</p></div></main>
 <div class="toast" id="toast" hidden></div>
 <svg class="pixel" viewBox="0 0 12 12" aria-hidden="true" shape-rendering="crispEdges"><path fill="#D4FF3B" d="M12 2h-1v1h-1v1H9v1H8v1H7v1H6v1H5v1H4v1H3v1H2v1H12z"/><path fill="#252525" d="M12 5h-1v1h-1v1H9v1H8v1H7v1H6v2h6z"/></svg>
@@ -811,15 +851,35 @@ function renderWho(){
   w.append(avatarOf(S.uid)?h("img",{src:avatarOf(S.uid),alt:""}):"",h("span",{},displayName(S.uid)),
     S.isAdmin?h("span",{class:"chip admin"},"Админ"):isMember()?h("span",{class:"chip"},"Участник"):h("span",{class:"chip"},"Гость"));
 }
+/* Левая панель разделов: иконки, подпись видна в развёрнутом виде и во всплывающей подсказке */
+const ICONS={
+  chats:'<path d="M4 5h16v11H9l-5 4z"/>',
+  blogs:'<path d="M5 4h11l3 3v13H5z"/><path d="M8 9h8M8 13h8M8 17h5"/>',
+  people:'<circle cx="9" cy="8" r="3.2"/><path d="M3 19c.6-3.4 3-5 6-5s5.4 1.6 6 5"/><circle cx="17" cy="9" r="2.4"/><path d="M16 14c2.5 0 4.3 1.4 5 4"/>',
+  projects:'<path d="M6 9h12a3 3 0 013 3v2a3 3 0 01-5.3 1.9L14.5 14h-5l-1.2 1.9A3 3 0 013 14v-2a3 3 0 013-3z"/><path d="M8 11v3M6.5 12.5h3M16 12h.01M18 13.5h.01"/>',
+  market:'<path d="M4 8h16v11H4z"/><path d="M9 8V5h6v3"/><path d="M4 13h16"/>',
+  inits:'<path d="M5 4h14v16H5z"/><path d="M8.5 12l2.5 2.5 4.5-5"/>',
+  stats:'<path d="M5 20V11M10 20V5M15 20v-7M20 20V9"/>',
+  apps:'<circle cx="10" cy="8" r="3.2"/><path d="M4 19c.6-3.4 3-5 6-5 1.4 0 2.6.3 3.6 1"/><path d="M18 14v6M15 17h6"/>',
+  me:'<circle cx="12" cy="8" r="3.6"/><path d="M5 20c.8-4 3.6-6 7-6s6.2 2 7 6"/>',
+  tags:'<path d="M4 4h7l9 9-7 7-9-9z"/><circle cx="8" cy="8" r="1.4"/>'
+};
+function icon(k){ const s=document.createElementNS(svgNS,"svg"); s.setAttribute("viewBox","0 0 24 24"); s.setAttribute("aria-hidden","true"); s.innerHTML=ICONS[k]||""; return s; }
 function renderTabs(){
-  const t=document.getElementById("tabs"); t.replaceChildren();
-  if(!S.ready||!isMember()){ t.hidden=true; return; } t.hidden=false;
+  const side=document.getElementById("side"), t=document.getElementById("tabs"), tb=document.getElementById("tabs-bottom"); t.replaceChildren(); tb.replaceChildren();
+  const on=S.ready&&isMember(); side.hidden=!on; document.body.classList.toggle("has-side",on); if(!on) return;
   const pending=Object.values(M.status).filter(s=>s.state==="pending").length, live=S.inits.filter(i=>i.status==="voting").length;
   const invitedMe=S.requests.filter(r=>r.status!=="closed"&&(r.invited||[]).includes(S.uid)&&!S.ballots[S.uid]?.responses?.[r.id]).length;
   const openReq=S.requests.filter(r=>r.status!=="closed").length;
-  [["chats","Чаты",0],["blogs","Блоги и новости",0],["people","Люди",0],["projects","Проекты",0],["market",invitedMe?"Эксперты и запросы · вас пригласили":"Эксперты и запросы",invitedMe||openReq],["inits","Инициативы",live],["stats","Аналитика",0],["apps","Заявки",pending],["me","Мой профиль",0],["tags","Словарь тегов",0]].forEach(([k,l,n])=>
-    t.append(h("button",{class:"tab",role:"tab","aria-selected":String(S.tab===k&&!S.q),onclick:()=>{S.tab=k;S.q="";S.person=null;S.openBlog=null;document.getElementById("q").value="";try{localStorage.setItem("rvi-tab",k)}catch(e){};render();}},l,n?h("span",{class:"count"},n):"")));
+  const item=([k,l,n,hot])=>h("button",{class:"tab"+(hot?" hot":""),role:"tab",title:l+(n?" · "+n:""),"aria-label":l,"aria-selected":String(S.tab===k&&!S.q),
+    onclick:()=>{S.tab=k;S.q="";S.person=null;S.openBlog=null;document.getElementById("q").value="";try{localStorage.setItem("rvi-tab",k)}catch(e){};render();window.scrollTo({top:0});}},
+    icon(k),h("span",{class:"tab-label"},l),n?h("span",{class:"count"},n):"");
+  [["chats","Чаты",0],["blogs","Блоги и новости",0],["people","Люди",0],["projects","Проекты",0],["market",invitedMe?"Эксперты и запросы · вас пригласили":"Эксперты и запросы",invitedMe||openReq,!!invitedMe],["inits","Инициативы",live],["stats","Аналитика",0],["apps","Заявки",pending]].forEach(x=>t.append(item(x)));
+  [["tags","Словарь тегов",0],["me","Мой профиль",0]].forEach(x=>tb.append(item(x)));
 }
+function applySide(wide){ document.body.classList.toggle("side-wide",wide); const b=document.getElementById("side-toggle"); b.setAttribute("aria-label",wide?"Свернуть меню":"Развернуть меню"); b.title=wide?"Свернуть":"Развернуть"; try{localStorage.setItem("rvi-side",wide?"wide":"narrow")}catch(e){} }
+document.getElementById("side-toggle").addEventListener("click",()=>applySide(!document.body.classList.contains("side-wide")));
+try{ applySide(localStorage.getItem("rvi-side")==="wide"); }catch(e){ applySide(false); }
 
 /* ================= gate ================= */
 function renderGate(){
