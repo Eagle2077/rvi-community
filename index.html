@@ -366,6 +366,14 @@ if(!store._v4){
   if(store.applications?.u_denis) Object.assign(store.applications.u_denis,{seek:"Издателя для следующей ПК-игры и совет по реестру студий.",give:"Опыт выпуска двух игр в Steam без издателя: вишлисты, маркетинг, релиз."});
   store._v4=true; ls.set(KEY_DB,store);
 }
+// проекты для системы тегирования игр
+if(!store._v5){
+  store.projects={
+    g1:{author:"u_artem",title:"Северный рейс",studio:"Север Геймз",stage:"ea",link:"",tags:["action","adventure","platformer","explore","side","2d","pixel","hardcore","rt","postapoc","sp","pad","kbm","offline","indie"],createdAt:now-9*D},
+    g2:{author:"u_oleg",title:"Карманный городок",studio:"Pixel Forge",stage:"release",link:"",tags:["sim","city","sandbox","cozy","casual","top","3d","lowpoly","touch","sp","online","indie"],createdAt:now-20*D},
+    g3:{author:"u_irina",title:"Империя рек",studio:"Издатель",stage:"dev",link:"",tags:["strategy","explore","expand","exploit","conquer","tb","iso","3d","realistic","military","sp","mp","pvp","kbm","online"],createdAt:now-4*D}};
+  store._v5=true; ls.set(KEY_DB,store);
+}
 const people=ls.get(KEY_P);
 const meId=ls.get(KEY_ME)||people[0].id;
 const me=people.find(p=>p.id===meId)||people[0];
@@ -485,7 +493,8 @@ const S = {
   channels:[], messages:[], blogs:[], comments:[], inits:[], ballots:{}, apps:{}, staff:{}, profiles:{},
   tab:"chats", channel:"general", replyTo:null, openComments:new Set(), openBlog:null, person:null, q:"", qType:"all",
   peopleTag:"", initDraft:null, exportFmt:"hh", editingProfile:false,
-  requests:[], marketView:"requests", marketFormat:"", importSrc:"linkedin"
+  requests:[], marketView:"requests", marketFormat:"", importSrc:"linkedin",
+  projects:[], projView:"catalog", gsel:new Set(), gfilter:new Set(), gdraft:null
 };
 const FORMATS = {talk:"Выступление", mc:"Мастер-класс", consult:"Консультация", jury:"Жюри / эксперт", mentor:"Менторство", media:"Подкаст / интервью"};
 const TERMS = {free:"Бесплатно", deal:"По договорённости", fee:"За гонорар"};
@@ -719,7 +728,7 @@ function view(){
   if(S.stale) out.push(h("div",{class:"notice warn",style:"margin-bottom:14px"},"Данные пока не доходят. То, что вы видите, может быть устаревшим."));
   if(!isMember()) return [...out,renderGate()];
   if(S.q.trim()) return [...out,renderSearch()];
-  const map={chats:renderChats,blogs:renderBlogs,people:renderPeople,market:renderMarket,inits:renderInits,stats:renderStats,apps:renderApps,me:renderMe,tags:renderTagsRef};
+  const map={chats:renderChats,blogs:renderBlogs,people:renderPeople,market:renderMarket,inits:renderInits,stats:renderStats,apps:renderApps,me:renderMe,tags:renderTagsRef,projects:renderProjects};
   out.push(map[S.tab]?map[S.tab]():renderChats());
   return out;
 }
@@ -734,7 +743,7 @@ function renderTabs(){
   const pending=Object.values(M.status).filter(s=>s.state==="pending").length, live=S.inits.filter(i=>i.status==="voting").length;
   const invitedMe=S.requests.filter(r=>r.status!=="closed"&&(r.invited||[]).includes(S.uid)&&!S.ballots[S.uid]?.responses?.[r.id]).length;
   const openReq=S.requests.filter(r=>r.status!=="closed").length;
-  [["chats","Чаты",0],["blogs","Блоги и новости",0],["people","Люди",0],["market",invitedMe?"Эксперты и запросы · вас пригласили":"Эксперты и запросы",invitedMe||openReq],["inits","Инициативы",live],["stats","Аналитика",0],["apps","Заявки",pending],["me","Мой профиль",0],["tags","Словарь тегов",0]].forEach(([k,l,n])=>
+  [["chats","Чаты",0],["blogs","Блоги и новости",0],["people","Люди",0],["projects","Проекты",0],["market",invitedMe?"Эксперты и запросы · вас пригласили":"Эксперты и запросы",invitedMe||openReq],["inits","Инициативы",live],["stats","Аналитика",0],["apps","Заявки",pending],["me","Мой профиль",0],["tags","Словарь тегов",0]].forEach(([k,l,n])=>
     t.append(h("button",{class:"tab",role:"tab","aria-selected":String(S.tab===k&&!S.q),onclick:()=>{S.tab=k;S.q="";S.person=null;S.openBlog=null;document.getElementById("q").value="";try{localStorage.setItem("rvi-tab",k)}catch(e){};render();}},l,n?h("span",{class:"count"},n):"")));
 }
 
@@ -1202,6 +1211,136 @@ function offerCard(p){
       h("div",{class:"grow"}),h("button",{class:"btn",disabled:!S.canWrite,onclick:()=>save({topics:topics.value.trim()})},"Сохранить темы")));
 }
 
+/* ================= проекты и система тегирования игр ================= */
+/* По документу «Система тегирования»: ортогональные группы (каждая отвечает на свой вопрос),
+   базовые атомарные теги, пресеты = наборы базовых тегов (метроидвания, 4X…), теги складываются в предложение. */
+const GAME_FACETS = [
+  {id:"play", label:"Игровой процесс", q:"Во что играем", multi:true, tags:[["shooter","шутер","Shooter"],["rpg","ролевая игра","RPG"],["strategy","стратегия","Strategy"],["sim","симулятор","Simulator"],["adventure","приключение","Adventure"],["puzzle","головоломка","Puzzle"],["racing","гонки","Racing"],["arcade","аркада","Arcade"],["sport","спорт","Sport"],["action","экшен","Action"],["slasher","слэшер","Hack and Slash"]]},
+  {id:"mech", label:"Механики", q:"Какие правила уточняют жанр", multi:true, tags:[["platformer","платформер","Platformer"],["stealth","стелс","Stealth"],["survival","выживание","Survival"],["craft","крафт","Crafting"],["procgen","процедурная генерация","Procedural generation"],["permadeath","перманентная смерть","Permadeath"],["explore","исследование","eXplore"],["expand","расширение территории","eXpand"],["exploit","добыча ресурсов","eXploit"],["conquer","уничтожение противника","eXterminate"],["defense","оборона","Defense"],["cards","карточная","Card game"],["vn","визуальная новелла","Visual Novel"],["text","текстовая","Text-based"],["arena","арена","Arena"]]},
+  {id:"simarea", label:"Область симуляции", q:"Что симулируем", multi:true, tags:[["space","космос","Space"],["life","жизнь","Life"],["city","город","City"],["transport","транспорт","Transport"]]},
+  {id:"rp", label:"Режим отыгрыша", q:"Чем решаются задачи", multi:true, tags:[["playerskill","навыками игрока","Player Skill"],["charskill","навыками персонажа","Character Skill"],["social","социальным взаимодействием","Social Interaction"]]},
+  {id:"time", label:"Режим времени", q:"Как течёт время", multi:false, tags:[["rt","реальное время","Real-Time"],["tb","пошаговый","Turn-based"],["tact","тактовый / ритм","Rhythm"]]},
+  {id:"world", label:"Структура мира", q:"Как устроено пространство", multi:false, tags:[["open","открытый мир","Open World"],["linear","линейный","Linear"],["sandbox","песочница","Sandbox"]]},
+  {id:"scope", label:"Масштаб", q:"Какого размера проект", multi:true, tags:[["aaa","AAA","AAA"],["indie","инди","Indie"],["short","короткая игра","Short game"]]},
+  {id:"mood", label:"Настроение", q:"Что чувствует игрок", multi:true, tags:[["horror","ужас","Horror"],["cozy","уют","Cozy"],["mystic","мистика","Mysticism"],["drama","драма","Drama"],["comedy","комедия","Comedy"],["detective","детектив","Detective"]]},
+  {id:"setting", label:"Декорации", q:"Где и когда происходит", multi:true, tags:[["fantasy","фэнтези","Fantasy"],["scifi","научная фантастика","Sci-Fi"],["postapoc","постапокалипсис","Post-apocalypse"],["cyberpunk","киберпанк","Cyberpunk"],["military","военная","Military"]]},
+  {id:"aspire", label:"Сложность", q:"На кого рассчитана", multi:false, tags:[["hardcore","сложная","Hardcore"],["casual","казуальная","Casual"]]},
+  {id:"camera", label:"Камера", q:"Откуда смотрим", multi:false, tags:[["fp","от первого лица","First-Person"],["top","вид сверху","Top-down"],["side","вид сбоку","Side view"],["tp","от третьего лица","Third-Person"],["iso","изометрия","Isometric"],["orbit","орбитальная","Orbital"]]},
+  {id:"style", label:"Графический стиль", q:"Как выглядит", multi:true, tags:[["realistic","реалистичный","Realistic"],["anime","аниме","Anime"],["pixel","пиксельный","Pixel Art"],["retro","ретро","Retro"],["handdrawn","рисованный","Hand drawn"],["voxel","воксельный","Voxel"],["lowpoly","низкополигональный","Low-poly"],["minimal","минимализм","Minimalism"]]},
+  {id:"dim", label:"Графический объём", q:"Сколько измерений", multi:false, tags:[["3d","3D","3D"],["25d","2.5D","2.5D"],["2d","2D","2D"]]},
+  {id:"ctrl", label:"Управление", q:"Чем играем", multi:true, tags:[["kbm","клавиатура и мышь","Keyboard & mouse"],["pad","геймпад","Gamepad"],["touch","сенсорный экран","Touchscreen"],["stick","джойстик","Joystick"],["wheel","руль","Racing Wheel"]]},
+  {id:"net", label:"Интернет", q:"Нужен ли интернет", multi:false, tags:[["online","нужен","Online"],["offline","не нужен","Offline"]]},
+  {id:"version", label:"Версия", q:"Это оригинал или переработка", multi:false, tags:[["original","оригинал","Original"],["remaster","ремастер","Remaster"],["remake","ремейк","Remake"],["demake","демейк","Demake"]]},
+  {id:"players", label:"Игроки", q:"Сколько играют", multi:true, tags:[["sp","одиночная","Single Player"],["local","локальный мультиплеер","Local Multiplayer"],["mp","сетевой мультиплеер","Multiplayer"]]},
+  {id:"mpmode", label:"Взаимодействие игроков", q:"Вместе или против", multi:true, tags:[["coop","кооператив","Co-op / PwP"],["pwnp","вместе с ботами","PwnP"],["pvp","игрок против игрока","PvP"],["pve","против окружения","PvE"]]}
+];
+const GTAG={}; GAME_FACETS.forEach(f=>f.tags.forEach(([id,label,en])=>GTAG[id]={id,label,en,facet:f.id}));
+const GFACET=Object.fromEntries(GAME_FACETS.map(f=>[f.id,f]));
+const GAME_PRESETS = [
+  {id:"metroidvania", label:"Метроидвания", tags:["platformer","explore","action","adventure","side","2d"], why:"Metroid + Castlevania: платформер с исследованием связного мира"},
+  {id:"4x", label:"4X", tags:["strategy","explore","expand","exploit","conquer","tb"], why:"eXplore, eXpand, eXploit, eXterminate"},
+  {id:"soulslike", label:"Соулслайк", tags:["action","rpg","hardcore","tp","rt","playerskill"], why:"Сложный экшен от третьего лица, где решает навык игрока"},
+  {id:"roguelike", label:"Рогалик", tags:["procgen","permadeath","rpg"], why:"Процедурная генерация + перманентная смерть"},
+  {id:"survcraft", label:"Выживание-крафт", tags:["survival","craft","sandbox"], why:"Выживание с добычей и созданием предметов в песочнице"},
+  {id:"td", label:"Tower defense", tags:["strategy","defense","rt","top"], why:"Стратегия обороны в реальном времени, вид сверху"},
+  {id:"citybuilder", label:"Градостроитель", tags:["sim","city","sandbox"], why:"Симулятор города в песочнице"},
+  {id:"lifesim", label:"Симулятор жизни", tags:["sim","life","cozy"], why:"Уютная симуляция повседневной жизни"},
+  {id:"battlearena", label:"Боевая арена", tags:["action","arena","mp","pvp"], why:"Сетевые бои игроков на арене"}
+];
+const STAGES={idea:"Идея",dev:"В разработке",ea:"Ранний доступ",release:"Вышла"};
+function presetMatches(tags){ const s=new Set(tags); return GAME_PRESETS.filter(p=>p.tags.every(t=>s.has(t))); }
+function gameSentence(tags){
+  const by={}; for(const t of tags){ const g=GTAG[t]; if(g)(by[g.facet]??=[]).push(g.label); }
+  const L=k=>(by[k]||[]); const j=a=>a.join(", ");
+  const parts=[];
+  const head=[L("scope").length?j(L("scope")):"",j(L("play"))||"игра"].filter(Boolean).join(" ");
+  let s1=head.charAt(0).toUpperCase()+head.slice(1);
+  if(L("time").length) s1+=", "+L("time")[0]; if(L("camera").length) s1+=", "+L("camera")[0];
+  if(L("aspire").length) s1+=", "+L("aspire")[0];
+  parts.push(s1+".");
+  if(L("mech").length) parts.push("Механики: "+j(L("mech"))+".");
+  if(L("simarea").length) parts.push("Симулирует: "+j(L("simarea"))+".");
+  if(L("rp").length) parts.push("Задачи решаются "+j(L("rp"))+".");
+  const w=[L("world").length?"мир — "+L("world")[0]:"",L("setting").length?"декорации — "+j(L("setting")):"",L("mood").length?"настроение — "+j(L("mood")):""].filter(Boolean);
+  if(w.length) parts.push(w.join("; ").replace(/^./,c=>c.toUpperCase())+".");
+  const g=[L("dim")[0],...L("style")].filter(Boolean); if(g.length) parts.push("Графика: "+g.join(", ")+".");
+  const m=[...L("players"),...L("mpmode")]; if(m.length) parts.push("Режим: "+j(m)+".");
+  if(L("ctrl").length) parts.push("Управление: "+j(L("ctrl"))+".");
+  if(L("net").length) parts.push("Интернет "+L("net")[0]+".");
+  if(L("version").length&&L("version")[0]!=="оригинал") parts.push("Это "+L("version")[0]+".");
+  const pr=presetMatches(tags); if(pr.length) parts.push("Узнаётся как: "+pr.map(p=>p.label).join(", ")+".");
+  return tags.length?parts.join(" "):"Выберите теги — здесь соберётся описание игры.";
+}
+function gameChips(tags,small){ return h("div",{class:"tags"},...GAME_FACETS.flatMap(f=>tags.filter(t=>GTAG[t]?.facet===f.id).map(t=>h("span",{class:"chip",title:f.label+" · "+GTAG[t].en,style:small?"font-size:11px":""},GTAG[t].label)))); }
+function toggleGameTag(set,id){ const g=GTAG[id]; if(set.has(id)){ set.delete(id); return; } if(!GFACET[g.facet].multi) GFACET[g.facet].tags.forEach(([x])=>set.delete(x)); set.add(id); }
+function facetPicker(set,onChange,counts){
+  return h("div",{class:"stack",style:"gap:10px"},...GAME_FACETS.map(f=>h("div",{style:"display:grid;grid-template-columns:170px minmax(0,1fr);gap:10px;align-items:start"},
+    h("div",{},h("div",{class:"small",style:"font-weight:600"},f.label),h("div",{class:"small muted"},f.q+(f.multi?"":" · один"))),
+    h("div",{class:"tags"},...f.tags.map(([id,label,en])=>{ const n=counts?counts[id]||0:null; return h("button",{class:"chip","aria-pressed":String(set.has(id)),title:en,disabled:counts&&!n&&!set.has(id),onclick:()=>{ toggleGameTag(set,id); onChange(); }},label+(counts?" "+n:"")); })))));
+}
+function renderProjects(){
+  const views=[["catalog","Каталог проектов"],["builder","Конструктор тегов"]];
+  return h("div",{class:"stack"},
+    h("h2",{class:"sec-title"},"Проекты"),
+    h("p",{class:"muted",style:"margin:0;max-width:85ch"},"Игры участников по единой системе тегов: у каждой группы свой вопрос, теги в группе не пересекаются, жанры вроде «метроидвании» и «4X» раскладываются на базовые теги. Из тегов собирается описание игры."),
+    h("div",{class:"tags"},...views.map(([k,l])=>h("button",{class:"chip","aria-pressed":String(S.projView===k),onclick:()=>{S.projView=k;render();}},l))),
+    S.projView==="builder"?gameBuilder():projectCatalog());
+}
+function projectCatalog(){
+  const f=S.gfilter;
+  const list=S.projects.filter(p=>[...f].every(t=>(p.tags||[]).includes(t)));
+  const counts={}; list.forEach(p=>(p.tags||[]).forEach(t=>counts[t]=(counts[t]||0)+1));
+  const presetBtns=h("div",{class:"tags"},...GAME_PRESETS.map(p=>h("button",{class:"chip",title:p.why+" → "+p.tags.map(t=>GTAG[t].label).join(" + "),onclick:()=>{ p.tags.forEach(t=>f.add(t)); render(); }},p.label)));
+  const left=h("div",{class:"col"},
+    f.size?h("div",{class:"row"},h("span",{class:"small muted"},"Фильтр:"),gameChips([...f]),h("button",{class:"btn ghost sm",onclick:()=>{f.clear();render();}},"Сбросить")):"",
+    h("div",{class:"small muted"},plural(list.length,"проект","проекта","проектов")+(f.size?(list.length%10===1&&list.length%100!==11?" подходит":" подходят")+" под все выбранные теги":"")),
+    ...(!list.length?[h("div",{class:"card empty"},h("h3",{},S.projects.length?"Ничего не подходит":"Проектов пока нет"),h("p",{},S.projects.length?"Уберите часть тегов из фильтра.":"Добавьте свою игру через «Конструктор тегов»."))]:[]),
+    ...list.map(projectCard));
+  const rail=h("div",{class:"col"},h("div",{class:"card stack"},h("div",{class:"eyebrow"},"Пресеты"),h("p",{class:"small muted",style:"margin:0"},"Привычные названия жанров. Клик добавляет их базовые теги в фильтр."),presetBtns),
+    h("div",{class:"card stack"},h("div",{class:"eyebrow"},"Фильтр по тегам"),facetPicker(f,render,counts)));
+  return h("div",{class:"layout"},left,rail);
+}
+function projectCard(p){
+  const mine=p.author===S.uid;
+  return h("article",{class:"card stack"},
+    h("div",{class:"row"},h("h3",{class:"grow",style:"font-size:18px"},p.title),h("span",{class:"chip "+(p.stage==="release"?"yes":p.stage==="ea"?"live":"")},STAGES[p.stage]||"")),
+    h("div",{class:"body-text"},gameSentence(p.tags||[])),
+    gameChips(p.tags||[],true),
+    h("div",{class:"row small muted"},avatarEl(p.author,"sm"),h("button",{class:"btn ghost",style:"padding:0;color:var(--ink);font-weight:600",onclick:()=>openPerson(p.author)},displayName(p.author)),p.studio?h("span",{},p.studio):"",
+      p.link?h("a",{href:p.link,target:"_blank",rel:"noopener nofollow"},"страница игры"):"",h("div",{class:"grow"}),
+      mine?h("button",{class:"btn ghost sm",onclick:()=>{ S.gsel=new Set(p.tags||[]); S.gdraft={id:p.id,title:p.title,studio:p.studio||"",link:p.link||"",stage:p.stage||"dev"}; S.projView="builder"; render(); window.scrollTo({top:0}); }},"Изменить"):"",
+      (mine||S.isAdmin)?h("button",{class:"btn ghost sm danger",onclick:e=>confirmInline(e.currentTarget,"Удалить проект?",()=>guard(()=>S.db.doc("projects/"+p.id).delete()))},"Удалить"):""));
+}
+function gameBuilder(){
+  const sel=S.gsel, d=S.gdraft||{title:"",studio:"",link:"",stage:"dev"};
+  const sentence=h("div",{class:"body-text",id:"g-sentence",style:"font-size:16px"},gameSentence([...sel]));
+  const tagsLine=[...sel].map(t=>GTAG[t].label).join(", ");
+  const rail=h("div",{class:"col",style:"position:sticky;top:120px;align-self:start"},
+    h("div",{class:"card stack"},h("div",{class:"eyebrow"},"Описание из тегов"),sentence,gameChips([...sel]),
+      h("div",{class:"row"},
+        h("button",{class:"btn sm",disabled:!sel.size,onclick:()=>copyText(gameSentence([...sel]))},"Копировать описание"),
+        h("button",{class:"btn sm",disabled:!sel.size,onclick:()=>copyText(tagsLine)},"Копировать теги"),
+        h("button",{class:"btn ghost sm",disabled:!sel.size,onclick:()=>{ S.gsel=new Set(); render(); }},"Очистить"))),
+    h("div",{class:"card stack"},h("div",{class:"eyebrow"},d.id?"Изменить проект":"Сохранить как проект"),
+      h("label",{},"Название игры",h("input",{type:"text",id:"g-title",value:d.title,maxlength:120})),
+      h("div",{class:"grid2"},h("label",{},"Студия",h("input",{type:"text",id:"g-studio",value:d.studio,maxlength:80})),h("label",{},"Стадия",h("select",{id:"g-stage"},...Object.entries(STAGES).map(([k,l])=>h("option",{value:k,selected:d.stage===k},l))))),
+      h("label",{},"Ссылка (Steam, VK Play, сайт)",h("input",{type:"text",id:"g-link",value:d.link,maxlength:300})),
+      h("div",{class:"row"},h("button",{class:"btn primary",disabled:!S.canWrite||!sel.size,onclick:()=>{ const v=id=>document.getElementById(id).value.trim();
+        const data={title:v("g-title"),studio:v("g-studio"),stage:v("g-stage"),link:v("g-link"),tags:[...sel],author:S.uid,updatedAt:Date.now()};
+        if(!data.title) return toast("Напишите название игры.");
+        guard(async()=>{ if(d.id) await S.db.doc("projects/"+d.id).update(data); else await S.db.collection("projects").add({...data,createdAt:Date.now()});
+          S.gdraft=null; S.gsel=new Set(); ["g-title","g-studio","g-link"].forEach(id=>{const el=document.getElementById(id); if(el){el.value="";el.dataset.fresh="1";}}); S.projView="catalog"; toast(d.id?"Проект обновлён":"Проект добавлен"); render(); }); }},d.id?"Сохранить изменения":"Добавить в каталог"),
+        d.id?h("button",{class:"btn ghost sm",onclick:()=>{S.gdraft=null;S.gsel=new Set();render();}},"Отмена"):"")));
+  const left=h("div",{class:"col"},
+    h("div",{class:"card stack"},h("div",{class:"eyebrow"},"1. Начните с пресета или сразу с тегов"),
+      h("p",{class:"small muted",style:"margin:0"},"Пресет — это привычное название, которое раскладывается на базовые теги. Их можно дальше править."),
+      h("div",{class:"stack",style:"gap:6px"},...GAME_PRESETS.map(p=>h("div",{class:"row"},h("button",{class:"chip","aria-pressed":String(p.tags.every(t=>sel.has(t))),onclick:()=>{ p.tags.forEach(t=>{ if(!sel.has(t)) toggleGameTag(sel,t); }); render(); }},p.label),
+        h("span",{class:"small muted"},"= "+p.tags.map(t=>GTAG[t].label).join(" + ")))))),
+    h("div",{class:"card stack"},h("div",{class:"eyebrow"},"2. Ответьте на вопросы групп"),facetPicker(sel,render)));
+  return h("div",{class:"layout"},left,rail);
+}
+function copyText(t){ navigator.clipboard?.writeText(t).then(()=>toast("Скопировано"),()=>toast("Не удалось скопировать")); }
+
 /* ================= справочник тегов ================= */
 function renderTagsRef(){
   const FC={role:"var(--accent)",tool:"#9AD8FF",platform:"#C9B6FF",topic:"var(--admin)"};
@@ -1390,7 +1529,7 @@ async function boot(){ document.body.classList.toggle("no-tags",!TAGS_ON);
   S.db=db; S.user=user; if(!db){ S.offline=true; render(); return; }
   const me=user?await user.me():null; S.uid=me?.id||null; S.isAdmin=!!me?.canEdit;
   const cw=user?await user.can("data.write"):null; S.canWrite=cw!==false;
-  const need=["channels","messages","blogs","comments","inits","ballots","apps","staff","profiles","requests"];
+  const need=["channels","messages","blogs","comments","inits","ballots","apps","staff","profiles","requests","projects"];
   const timer=setTimeout(()=>{S.stale=true;render();},10000);
   let pending=false; const schedule=()=>{ if(pending) return; pending=true; requestAnimationFrame(()=>{pending=false;render();}); };
   const done=(k,snap)=>{ if(!snap.metadata.fromCache) S.loaded[k]=true; if(need.every(n=>S.loaded[n])){ clearTimeout(timer); S.stale=false; if(!S.ready){ S.ready=true; registerStaff(); } } schedule(); };
@@ -1406,6 +1545,7 @@ async function boot(){ document.body.classList.toggle("no-tags",!TAGS_ON);
   db.collection("staff").onSnapshot(s=>{S.staff=map(s);done("staff",s);},fail("staff"));
   db.collection("profiles").onSnapshot(s=>{S.profiles=map(s);done("profiles",s);},fail("profiles"));
   db.collection("requests").orderBy("createdAt","desc").limit(300).onSnapshot(s=>{S.requests=list(s);done("requests",s);},fail("requests"));
+  db.collection("projects").orderBy("createdAt","desc").limit(500).onSnapshot(s=>{S.projects=list(s);done("projects",s);},fail("projects"));
 }
 async function registerStaff(){ if(!S.isAdmin||!S.uid||S.staff[S.uid]) return; try{ await S.db.doc("staff/"+S.uid).set({since:Date.now()}); }catch(e){} }
 setInterval(()=>{ if(S.ready&&!document.hidden) render(); },60000);
